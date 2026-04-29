@@ -1,0 +1,285 @@
+
+# LogiHub — File Tree
+
+```
+logihub/
+│
+├── docker-compose.yml              # Оркестрация сервисов
+├── .env                            # Секреты (не в git)
+├── .env.example                    # Шаблон переменных
+├── .gitignore                      # Исключения git
+├── README.md                       # Документация проекта
+│
+│
+├── backend/                        # FastAPI-сервис
+│   │
+│   ├── Dockerfile                  # Образ бэкенда
+│   ├── requirements.txt            # Python-зависимости
+│   ├── .env.example                # Переменные бэкенда
+│   │
+│   ├── main.py                     # Точка входа FastAPI
+│   │
+│   ├── core/                       # Ядро приложения
+│   │   ├── __init__.py
+│   │   ├── config.py               # Настройки (pydantic-settings)
+│   │   ├── database.py             # Async-сессия SQLAlchemy
+│   │   ├── security.py             # JWT + bcrypt
+│   │   ├── dependencies.py         # DI: get_db, get_current_user
+│   │   └── exceptions.py           # Кастомные HTTP-исключения
+│   │
+│   ├── models/                     # SQLAlchemy ORM-модели
+│   │   ├── __init__.py
+│   │   ├── base.py                 # DeclarativeBase
+│   │   ├── user.py                 # Таблица users
+│   │   ├── product.py              # Таблица products
+│   │   ├── order.py                # Таблица orders
+│   │   └── order_status_log.py     # Таблица order_status_log
+│   │
+│   ├── schemas/                    # Pydantic-схемы (запрос/ответ)
+│   │   ├── __init__.py
+│   │   ├── auth.py                 # LoginRequest, TokenResponse, UserOut
+│   │   ├── product.py              # ProductCreate, ProductUpdate, ProductOut
+│   │   ├── order.py                # OrderCreate, OrderUpdate, OrderOut, OrderListOut
+│   │   ├── user.py                 # UserCreate, UserUpdate, UserOut
+│   │   ├── analytics.py            # SummaryOut, ProfitOut, ProfitBreakdown
+│   │   └── common.py              # ErrorResponse, PaginationParams
+│   │
+│   ├── routers/                    # FastAPI-роутеры (18 эндпоинтов)
+│   │   ├── __init__.py
+│   │   │
+│   │   ├── auth.py                 # POST /auth/login (#1)
+│   │   │                           # GET  /auth/me    (#3)
+│   │   │
+│   │   ├── products.py             # GET    /products      (#4)
+│   │   │                           # POST   /products      (#5)
+│   │   │                           # PATCH  /products/:id  (#6)
+│   │   │                           # DELETE /products/:id  (#7)
+│   │   │
+│   │   ├── orders.py               # GET    /orders           (#8)
+│   │   │                           # POST   /orders           (#9)
+│   │   │                           # PATCH  /orders/:id       (#10)
+│   │   │                           # DELETE /orders/:id       (#11)
+│   │   │                           # POST   /orders/:id/assign (#12)
+│   │   │
+│   │   ├── users.py                # GET   /users      (#13)
+│   │   │                           # POST  /users      (#14)
+│   │   │                           # PATCH /users/:id  (#15)
+│   │   │
+│   │   ├── analytics.py            # GET /analytics/summary (#16)
+│   │   │                           # GET /analytics/profit  (#17)
+│   │   │
+│   │   └── bot.py                  # POST /bot/webhook          (#2)
+│   │                               # PATCH /bot/orders/:id/status (#18)
+│   │
+│   ├── services/                   # Бизнес-логика (без HTTP)
+│   │   ├── __init__.py
+│   │   ├── auth_service.py         # Логика login/me
+│   │   ├── product_service.py      # CRUD + проверка open orders
+│   │   ├── order_service.py        # CRUD + stock decrement + log
+│   │   ├── user_service.py         # CRUD курьеров
+│   │   ├── analytics_service.py    # Агрегации прибыли
+│   │   ├── assign_service.py       # Логика назначения + push
+│   │   └── notification_service.py # Telegram push (fire-and-forget)
+│   │
+│   ├── constants/                  # Энумы и константы
+│   │   ├── __init__.py
+│   │   ├── order_status.py         # ORDER_STATUSES, STATUS_TRANSITIONS
+│   │   ├── user_roles.py           # USER_ROLES
+│   │   └── price.py                # som_to_tiyins, tiyins_to_som
+│   │
+│   └── migrations/                 # Alembic
+│       ├── env.py                  # Конфиг Alembic
+│       ├── script.py.mako          # Шаблон ревизий
+│       ├── alembic.ini             # Настройки Alembic
+│       └── versions/               # SQL-ревизии
+│           ├── 0001_create_users.py
+│           ├── 0002_create_products.py
+│           ├── 0003_create_orders.py
+│           └── 0004_create_order_status_log.py
+│
+│
+├── frontend/                       # Next.js 14 Admin Web App
+│   │
+│   ├── Dockerfile                  # Образ фронтенда
+│   ├── package.json                # npm-зависимости
+│   ├── package-lock.json
+│   ├── tsconfig.json               # TypeScript-конфиг
+│   ├── next.config.ts              # Next.js-конфиг
+│   ├── tailwind.config.ts          # Tailwind-конфиг
+│   ├── postcss.config.js           # PostCSS-конфиг
+│   ├── .env.local.example          # NEXT_PUBLIC_API_URL и др.
+│   ├── .eslintrc.json              # ESLint-конфиг
+│   │
+│   ├── public/                     # Статические ресурсы
+│   │   ├── favicon.ico
+│   │   └── logo.svg                # Логотип LogiHub
+│   │
+│   ├── src/
+│   │   │
+│   │   ├── app/                    # Next.js App Router
+│   │   │   │
+│   │   │   ├── layout.tsx          # Root layout (шрифты, провайдеры)
+│   │   │   ├── globals.css         # Глобальные стили
+│   │   │   │
+│   │   │   ├── (auth)/             # Route group — публичные
+│   │   │   │   └── login/
+│   │   │   │       └── page.tsx    # /login — форма входа
+│   │   │   │
+│   │   │   └── (dashboard)/        # Route group — защищённые
+│   │   │       ├── layout.tsx      # Sidebar + TopBar + AuthGuard
+│   │   │       ├── page.tsx        # / — Дашборд (summary + open orders)
+│   │   │       │
+│   │   │       ├── orders/
+│   │   │       │   ├── page.tsx    # /orders — таблица заказов
+│   │   │       │   ├── new/
+│   │   │       │   │   └── page.tsx  # /orders/new — форма создания
+│   │   │       │   └── [id]/
+│   │   │       │       └── page.tsx  # /orders/:id — детали + таймлайн
+│   │   │       │
+│   │   │       ├── products/
+│   │   │       │   └── page.tsx    # /products — инвентарь + модалки
+│   │   │       │
+│   │   │       ├── couriers/
+│   │   │       │   └── page.tsx    # /couriers — список + форма
+│   │   │       │
+│   │   │       └── analytics/
+│   │   │           └── page.tsx    # /analytics — графики прибыли
+│   │   │
+│   │   ├── components/             # UI-компоненты
+│   │   │   │
+│   │   │   ├── ui/                 # shadcn/ui примитивы
+│   │   │   │   ├── button.tsx
+│   │   │   │   ├── input.tsx
+│   │   │   │   ├── badge.tsx
+│   │   │   │   ├── dialog.tsx
+│   │   │   │   ├── select.tsx
+│   │   │   │   ├── table.tsx
+│   │   │   │   ├── card.tsx
+│   │   │   │   ├── skeleton.tsx
+│   │   │   │   └── toast.tsx
+│   │   │   │
+│   │   │   ├── layout/             # Каркас страницы
+│   │   │   │   ├── Sidebar.tsx     # Навигация слева
+│   │   │   │   ├── TopBar.tsx      # Хедер + пользователь
+│   │   │   │   └── AuthGuard.tsx   # Редирект если нет токена
+│   │   │   │
+│   │   │   ├── dashboard/          # Компоненты дашборда
+│   │   │   │   └── SummaryCards.tsx # Сегодня/неделя/алерты
+│   │   │   │
+│   │   │   ├── orders/             # Компоненты заказов
+│   │   │   │   ├── OrderTable.tsx  # Таблица + фильтры + бейджи
+│   │   │   │   ├── OrderForm.tsx   # Создать/редактировать заказ
+│   │   │   │   ├── StatusTimeline.tsx # Аудит-трейл статусов
+│   │   │   │   └── AssignModal.tsx # Выбор курьера (inline)
+│   │   │   │
+│   │   │   ├── products/           # Компоненты инвентаря
+│   │   │   │   ├── StockCard.tsx   # Карточка + индикатор остатка
+│   │   │   │   ├── ProductTable.tsx # Таблица товаров
+│   │   │   │   └── ProductModal.tsx # Модалка создать/редактировать
+│   │   │   │
+│   │   │   ├── couriers/           # Компоненты курьеров
+│   │   │   │   ├── CourierTable.tsx # Список курьеров
+│   │   │   │   └── CourierForm.tsx  # Форма добавления курьера
+│   │   │   │
+│   │   │   └── analytics/          # Компоненты аналитики
+│   │   │       └── ProfitChart.tsx  # Recharts line/bar-график
+│   │   │
+│   │   ├── hooks/                  # Кастомные React-хуки
+│   │   │   ├── useAuth.ts          # Текущий пользователь + logout
+│   │   │   ├── useOrders.ts        # SWR/React Query для заказов
+│   │   │   ├── useProducts.ts      # Хук инвентаря
+│   │   │   ├── useCouriers.ts      # Хук курьеров
+│   │   │   └── useAnalytics.ts     # Хук аналитики
+│   │   │
+│   │   ├── lib/                    # Утилиты и клиент API
+│   │   │   ├── api.ts              # Базовый fetch-клиент + токен
+│   │   │   ├── auth.ts             # Сохранение/чтение JWT
+│   │   │   ├── formatters.ts       # tiyins→сом, дата, статус-лейблы
+│   │   │   └── constants.ts        # STATUS_LABELS_RU, роли
+│   │   │
+│   │   └── types/                  # TypeScript-типы
+│   │       ├── api.ts              # ErrorResponse, PaginationParams
+│   │       ├── user.ts             # User, UserRole
+│   │       ├── product.ts          # Product, ProductCreate
+│   │       ├── order.ts            # Order, OrderStatus, OrderCreate
+│   │       └── analytics.ts        # Summary, ProfitBreakdown
+│   │
+│   └── components.json             # shadcn/ui CLI-конфиг
+│
+│
+└── bot/                            # aiogram 3.x Telegram Bot
+    │
+    ├── Dockerfile                  # Образ бота
+    ├── requirements.txt            # Python-зависимости бота
+    ├── .env.example                # BACKEND_URL, BOT_SECRET, TOKEN
+    │
+    ├── main.py                     # Точка входа aiogram
+    │
+    ├── core/                       # Конфиг и сессия бота
+    │   ├── __init__.py
+    │   ├── config.py               # Настройки (pydantic-settings)
+    │   └── http_client.py          # aiohttp-клиент → backend
+    │
+    ├── handlers/                   # Обработчики команд и кнопок
+    │   ├── __init__.py
+    │   ├── start.py                # /start → auth check + меню
+    │   ├── help.py                 # /help → справочный текст
+    │   ├── my_orders.py            # 📦 Мои заказы (assigned+in_transit)
+    │   ├── new_orders.py           # 🔔 Новые заказы (assigned)
+    │   └── status_update.py        # [Взял в работу] / [Доставлено] / [Проблема]
+    │
+    ├── keyboards/                  # Inline и Reply-клавиатуры
+    │   ├── __init__.py
+    │   ├── main_menu.py            # Reply-меню главного экрана
+    │   └── order_actions.py        # Inline-кнопки для карточки заказа
+    │
+    ├── services/                   # Логика взаимодействия с backend
+    │   ├── __init__.py
+    │   ├── auth_service.py         # Проверка tg_id по /users
+    │   └── order_service.py        # PATCH /bot/orders/:id/status
+    │
+    ├── middlewares/                 # aiogram-мидлвары
+    │   ├── __init__.py
+    │   └── courier_auth.py         # Проверка регистрации до хендлера
+    │
+    └── utils/                      # Вспомогательные функции
+        ├── __init__.py
+        ├── formatters.py           # Форматирование карточки заказа
+        └── validators.py           # Проверка допустимых переходов
+```
+
+---
+
+## Карта: Эндпоинт → Файл
+
+| # | Метод | Путь | Файл |
+|---|---|---|---|
+| 1 | POST | `/auth/login` | `backend/routers/auth.py` |
+| 2 | POST | `/bot/webhook` | `backend/routers/bot.py` |
+| 3 | GET | `/auth/me` | `backend/routers/auth.py` |
+| 4 | GET | `/products` | `backend/routers/products.py` |
+| 5 | POST | `/products` | `backend/routers/products.py` |
+| 6 | PATCH | `/products/:id` | `backend/routers/products.py` |
+| 7 | DELETE | `/products/:id` | `backend/routers/products.py` |
+| 8 | GET | `/orders` | `backend/routers/orders.py` |
+| 9 | POST | `/orders` | `backend/routers/orders.py` |
+| 10 | PATCH | `/orders/:id` | `backend/routers/orders.py` |
+| 11 | DELETE | `/orders/:id` | `backend/routers/orders.py` |
+| 12 | POST | `/orders/:id/assign` | `backend/routers/orders.py` |
+| 13 | GET | `/users` | `backend/routers/users.py` |
+| 14 | POST | `/users` | `backend/routers/users.py` |
+| 15 | PATCH | `/users/:id` | `backend/routers/users.py` |
+| 16 | GET | `/analytics/summary` | `backend/routers/analytics.py` |
+| 17 | GET | `/analytics/profit` | `backend/routers/analytics.py` |
+| 18 | PATCH | `/bot/orders/:id/status` | `backend/routers/bot.py` |
+
+---
+
+## Карта: Таблица БД → Файлы
+
+| Таблица | SQLAlchemy-модель | Pydantic-схема | Миграция |
+|---|---|---|---|
+| `users` | `backend/models/user.py` | `backend/schemas/auth.py` + `user.py` | `migrations/versions/0001_create_users.py` |
+| `products` | `backend/models/product.py` | `backend/schemas/product.py` | `migrations/versions/0002_create_products.py` |
+| `orders` | `backend/models/order.py` | `backend/schemas/order.py` | `migrations/versions/0003_create_orders.py` |
+| `order_status_log` | `backend/models/order_status_log.py` | (встроен в `order.py`) | `migrations/versions/0004_create_order_status_log.py` |

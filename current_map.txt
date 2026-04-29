@@ -1,0 +1,188 @@
+.
+├── architecture.md
+├── CONTEXT.md
+├── current_map.txt
+├── file_tree.md.resolved
+├── logihub
+│   ├── backend
+│   │   ├── constants
+│   │   │   ├── __init__.py
+│   │   │   ├── order_status.py
+│   │   │   ├── price.py
+│   │   │   └── user_roles.py
+│   │   ├── core
+│   │   │   ├── config.py
+│   │   │   ├── database.py
+│   │   │   ├── dependencies.py
+│   │   │   ├── exceptions.py
+│   │   │   ├── __init__.py
+│   │   │   └── security.py
+│   │   ├── Dockerfile
+│   │   ├── main.py
+│   │   ├── migrations
+│   │   │   ├── alembic.ini
+│   │   │   ├── env.py
+│   │   │   ├── script.py.mako
+│   │   │   └── versions
+│   │   │       ├── 0001_create_users.py
+│   │   │       ├── 0002_create_products.py
+│   │   │       ├── 0003_create_orders.py
+│   │   │       └── 0004_create_order_status_log.py
+│   │   ├── models
+│   │   │   ├── base.py
+│   │   │   ├── __init__.py
+│   │   │   ├── order.py
+│   │   │   ├── order_status_log.py
+│   │   │   ├── product.py
+│   │   │   └── user.py
+│   │   ├── requirements.txt
+│   │   ├── routers
+│   │   │   ├── analytics.py
+│   │   │   ├── auth.py
+│   │   │   ├── bot.py
+│   │   │   ├── __init__.py
+│   │   │   ├── orders.py
+│   │   │   ├── products.py
+│   │   │   └── users.py
+│   │   ├── schemas
+│   │   │   ├── analytics.py
+│   │   │   ├── auth.py
+│   │   │   ├── common.py
+│   │   │   ├── __init__.py
+│   │   │   ├── order.py
+│   │   │   ├── product.py
+│   │   │   └── user.py
+│   │   └── services
+│   │       ├── analytics_service.py
+│   │       ├── assign_service.py
+│   │       ├── auth_service.py
+│   │       ├── __init__.py
+│   │       ├── notification_service.py
+│   │       ├── order_service.py
+│   │       ├── product_service.py
+│   │       └── user_service.py
+│   ├── bot
+│   │   ├── core
+│   │   │   ├── config.py
+│   │   │   ├── http_client.py
+│   │   │   └── __init__.py
+│   │   ├── Dockerfile
+│   │   ├── handlers
+│   │   │   ├── help.py
+│   │   │   ├── __init__.py
+│   │   │   ├── my_orders.py
+│   │   │   ├── new_orders.py
+│   │   │   ├── start.py
+│   │   │   └── status_update.py
+│   │   ├── keyboards
+│   │   │   ├── __init__.py
+│   │   │   ├── main_menu.py
+│   │   │   └── order_actions.py
+│   │   ├── main.py
+│   │   ├── middlewares
+│   │   │   ├── courier_auth.py
+│   │   │   └── __init__.py
+│   │   ├── requirements.txt
+│   │   ├── services
+│   │   │   ├── auth_service.py
+│   │   │   ├── __init__.py
+│   │   │   └── order_service.py
+│   │   └── utils
+│   │       ├── formatters.py
+│   │       ├── __init__.py
+│   │       └── validators.py
+│   ├── docker-compose.yml
+│   ├── frontend
+│   │   ├── AGENTS.md
+│   │   ├── app
+│   │   │   ├── (auth)
+│   │   │   │   └── login
+│   │   │   │       └── page.tsx
+│   │   │   ├── (dashboard)
+│   │   │   │   ├── analytics
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── couriers
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── layout.tsx
+│   │   │   │   ├── orders
+│   │   │   │   │   ├── [id]
+│   │   │   │   │   │   └── page.tsx
+│   │   │   │   │   ├── new
+│   │   │   │   │   │   └── page.tsx
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── page.tsx
+│   │   │   │   └── products
+│   │   │   │       └── page.tsx
+│   │   │   ├── favicon.ico
+│   │   │   ├── globals.css
+│   │   │   ├── layout.tsx
+│   │   │   └── page.tsx
+│   │   ├── CLAUDE.md
+│   │   ├── eslint.config.mjs
+│   │   ├── next.config.ts
+│   │   ├── next-env.d.ts
+│   │   ├── package.json
+│   │   ├── pnpm-lock.yaml
+│   │   ├── pnpm-workspace.yaml
+│   │   ├── postcss.config.mjs
+│   │   ├── public
+│   │   │   ├── file.svg
+│   │   │   ├── globe.svg
+│   │   │   ├── next.svg
+│   │   │   ├── vercel.svg
+│   │   │   └── window.svg
+│   │   ├── README.md
+│   │   ├── src
+│   │   │   ├── components
+│   │   │   │   ├── analytics
+│   │   │   │   │   └── ProfitChart.tsx
+│   │   │   │   ├── couriers
+│   │   │   │   │   ├── CourierForm.tsx
+│   │   │   │   │   └── CourierTable.tsx
+│   │   │   │   ├── dashboard
+│   │   │   │   │   └── SummaryCards.tsx
+│   │   │   │   ├── layout
+│   │   │   │   │   ├── AuthGuard.tsx
+│   │   │   │   │   ├── Sidebar.tsx
+│   │   │   │   │   └── TopBar.tsx
+│   │   │   │   ├── orders
+│   │   │   │   │   ├── AssignModal.tsx
+│   │   │   │   │   ├── OrderForm.tsx
+│   │   │   │   │   ├── OrderTable.tsx
+│   │   │   │   │   └── StatusTimeline.tsx
+│   │   │   │   ├── products
+│   │   │   │   │   ├── ProductModal.tsx
+│   │   │   │   │   ├── ProductTable.tsx
+│   │   │   │   │   └── StockCard.tsx
+│   │   │   │   └── ui
+│   │   │   │       ├── badge.tsx
+│   │   │   │       ├── button.tsx
+│   │   │   │       ├── card.tsx
+│   │   │   │       ├── dialog.tsx
+│   │   │   │       ├── input.tsx
+│   │   │   │       ├── select.tsx
+│   │   │   │       ├── skeleton.tsx
+│   │   │   │       ├── table.tsx
+│   │   │   │       └── toast.tsx
+│   │   │   ├── hooks
+│   │   │   │   ├── useAnalytics.ts
+│   │   │   │   ├── useAuth.ts
+│   │   │   │   ├── useCouriers.ts
+│   │   │   │   ├── useOrders.ts
+│   │   │   │   └── useProducts.ts
+│   │   │   ├── lib
+│   │   │   │   ├── api.ts
+│   │   │   │   ├── auth.ts
+│   │   │   │   ├── constants.ts
+│   │   │   │   └── formatters.ts
+│   │   │   └── types
+│   │   │       ├── analytics.ts
+│   │   │       ├── api.ts
+│   │   │       ├── order.ts
+│   │   │       ├── product.ts
+│   │   │       └── user.ts
+│   │   └── tsconfig.json
+│   └── README.md
+└── requirements.txt
+
+42 directories, 144 files
