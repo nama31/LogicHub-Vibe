@@ -1,10 +1,24 @@
 """Настройки приложения (pydantic-settings)."""
 
-from pydantic_settings import BaseSettings
+from pathlib import Path
+
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class Settings(BaseSettings):
     """Настройки приложения."""
-    # TODO: implement fields
-    pass
+
+    model_config = SettingsConfigDict(
+        env_file=Path(__file__).resolve().parents[2] / ".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    database_url: str = Field(alias="DATABASE_URL")
+    jwt_secret: str | None = Field(default=None, alias="JWT_SECRET")
+    bot_secret: str | None = Field(default=None, alias="BOT_SECRET")
+    telegram_bot_token: str | None = Field(default=None, alias="TELEGRAM_BOT_TOKEN")
+
 
 settings = Settings()

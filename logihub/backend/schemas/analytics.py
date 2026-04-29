@@ -1,25 +1,67 @@
 """Схемы аналитики."""
 
+from datetime import date as Date
+
 from pydantic import BaseModel, Field
-from datetime import date
-from typing import List
+
+
+class SummaryPeriodOut(BaseModel):
+    """Сводка за период."""
+
+    orders_created: int = Field(..., ge=0)
+    orders_delivered: int = Field(..., ge=0)
+    net_profit_som: int = Field(...)
+
+
+class OpenOrderCountsOut(BaseModel):
+    """Счетчики открытых заказов."""
+
+    new: int = Field(..., ge=0)
+    assigned: int = Field(..., ge=0)
+    in_transit: int = Field(..., ge=0)
+
+
+class StockAlertOut(BaseModel):
+    """Товар с низким остатком."""
+
+    product_id: str = Field(...)
+    title: str = Field(...)
+    stock_quantity: int = Field(..., ge=0)
+
 
 class SummaryOut(BaseModel):
     """Сводка аналитики."""
-    total_orders: int = Field(...)
-    total_revenue: int = Field(...)
-    total_profit: int = Field(...)
 
-class DayBreakdown(BaseModel):
-    """Прибыль по дням."""
-    date: date = Field(...)
-    profit: int = Field(...)
+    today: SummaryPeriodOut = Field(...)
+    this_week: SummaryPeriodOut = Field(...)
+    stock_alerts: list[StockAlertOut] = Field(default_factory=list)
+    open_orders: OpenOrderCountsOut = Field(...)
 
-class ProfitBreakdown(BaseModel):
-    """Разбивка прибыли."""
-    by_days: List[DayBreakdown] = Field(...)
+
+class ProfitPeriodOut(BaseModel):
+    """Период отчета по прибыли."""
+
+    from_: Date = Field(..., alias="from")
+    to: Date = Field(...)
+
+    class Config:
+        populate_by_name = True
+
+
+class ProfitBreakdownItemOut(BaseModel):
+    """Прибыль по конкретному дню."""
+
+    date: Date = Field(...)
+    orders: int = Field(..., ge=0)
+    revenue_som: int = Field(...)
+    cost_som: int = Field(...)
+    courier_fees_som: int = Field(...)
+    profit_som: int = Field(...)
+
 
 class ProfitOut(BaseModel):
     """Ответ прибыли."""
-    total_profit: int = Field(...)
-    breakdown: ProfitBreakdown = Field(...)
+
+    period: ProfitPeriodOut = Field(...)
+    total_profit_som: int = Field(...)
+    breakdown: list[ProfitBreakdownItemOut] = Field(default_factory=list)

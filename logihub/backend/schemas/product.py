@@ -1,33 +1,44 @@
 """Схемы товара."""
 
-from pydantic import BaseModel, Field
-from uuid import UUID
 from datetime import datetime
-from typing import Optional
+from uuid import UUID
 
-class ProductCreate(BaseModel):
+from pydantic import AliasChoices, BaseModel, Field
+
+
+class ProductBase(BaseModel):
+    """Общие поля товара."""
+
+    title: str = Field(..., min_length=1)
+    purchase_price_som: int = Field(
+        ..., ge=0, validation_alias=AliasChoices("purchase_price_som", "purchase_price")
+    )
+    stock_quantity: int = Field(..., ge=0)
+    unit: str = Field(..., min_length=1)
+
+
+class ProductCreate(ProductBase):
     """Создание товара."""
-    title: str = Field(...)
-    purchase_price: int = Field(...)
-    stock_quantity: int = Field(default=0)
-    unit: str = Field(default='шт')
+
 
 class ProductUpdate(BaseModel):
     """Обновление товара."""
-    title: Optional[str] = Field(None)
-    purchase_price: Optional[int] = Field(None)
-    stock_quantity: Optional[int] = Field(None)
-    unit: Optional[str] = Field(None)
 
-class ProductOut(BaseModel):
+    title: str | None = Field(None, min_length=1)
+    purchase_price_som: int | None = Field(
+        None, ge=0, validation_alias=AliasChoices("purchase_price_som", "purchase_price")
+    )
+    stock_quantity: int | None = Field(None, ge=0)
+    unit: str | None = Field(None, min_length=1)
+
+
+class ProductOut(ProductBase):
     """Товар для ответа."""
+
     id: UUID = Field(...)
-    title: str = Field(...)
-    purchase_price: int = Field(...)
-    stock_quantity: int = Field(...)
-    unit: str = Field(...)
     created_at: datetime = Field(...)
     updated_at: datetime = Field(...)
 
     class Config:
         from_attributes = True
+        populate_by_name = True

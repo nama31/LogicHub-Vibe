@@ -1,0 +1,61 @@
+.
+├── constants
+│   ├── __init__.py
+│   ├── order_status.py
+│   ├── price.py
+│   └── user_roles.py
+├── core
+│   ├── config.py
+│   ├── database.py
+│   ├── dependencies.py
+│   ├── exceptions.py
+│   ├── __init__.py
+│   └── security.py
+├── current_map.txt
+├── Dockerfile
+├── main.py
+├── migrations
+│   ├── alembic.ini
+│   ├── env.py
+│   ├── script.py.mako
+│   └── versions
+│       ├── 0001_create_users.py
+│       ├── 0002_create_products.py
+│       ├── 0003_create_orders.py
+│       ├── 0004_create_order_status_log.py
+│       └── cdd5b2320fde_init.py
+├── models
+│   ├── base.py
+│   ├── __init__.py
+│   ├── order.py
+│   ├── order_status_log.py
+│   ├── product.py
+│   └── user.py
+├── requirements.txt
+├── routers
+│   ├── analytics.py
+│   ├── auth.py
+│   ├── bot.py
+│   ├── __init__.py
+│   ├── orders.py
+│   ├── products.py
+│   └── users.py
+├── schemas
+│   ├── analytics.py
+│   ├── auth.py
+│   ├── common.py
+│   ├── __init__.py
+│   ├── order.py
+│   ├── product.py
+│   └── user.py
+└── services
+    ├── analytics_service.py
+    ├── assign_service.py
+    ├── auth_service.py
+    ├── __init__.py
+    ├── notification_service.py
+    ├── order_service.py
+    ├── product_service.py
+    └── user_service.py
+
+9 directories, 50 files

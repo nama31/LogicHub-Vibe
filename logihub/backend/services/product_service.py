@@ -1,26 +1,67 @@
 """Сервис товаров."""
 
 from typing import List
+from fastapi import HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from constants.price import som_to_tiyins, tiyins_to_som
 from schemas.product import ProductCreate, ProductUpdate
 from models.product import Product
 from uuid import UUID
 
-async def get_products() -> List[Product]:
+async def get_products(db: AsyncSession) -> List[Product]:
     """Получить товары."""
-    # TODO: implement
-    pass
 
-async def create_product(data: ProductCreate) -> Product:
+    result = await db.execute(select(Product).order_by(Product.created_at.desc()))
+    products = list(result.scalars().all())
+
+    for product in products:
+        product.purchase_price_som = tiyins_to_som(product.purchase_price)
+
+    return products
+
+async def create_product(data: ProductCreate, db: AsyncSession) -> Product:
     """Создать товар."""
-    # TODO: implement
-    pass
 
-async def update_product(id: UUID, data: ProductUpdate) -> Product:
+    product = Product(
+        title=data.title,
+        purchase_price=som_to_tiyins(data.purchase_price_som),
+        stock_quantity=data.stock_quantity,
+        unit=data.unit,
+    )
+    db.add(product)
+    await db.commit()
+    await db.refresh(product)
+    product.purchase_price_som = tiyins_to_som(product.purchase_price)
+    return product
+
+async def update_product(id: UUID, data: ProductUpdate, db: AsyncSession) -> Product:
     """Обновить товар."""
-    # TODO: implement
-    pass
 
-async def delete_product(id: UUID) -> None:
+    product = await db.get(Product, id)
+    if product is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+
+    update_data = data.model_dump(exclude_unset=True)
+
+    if "purchase_price_som" in update_data:
+        update_data["purchase_price"] = som_to_tiyins(update_data.pop("purchase_price_som"))
+
+    for field_name, value in update_data.items():
+        setattr(product, field_name, value)
+
+    await db.commit()
+    await db.refresh(product)
+    product.purchase_price_som = tiyins_to_som(product.purchase_price)
+    return product
+
+async def delete_product(id: UUID, db: AsyncSession) -> None:
     """Удалить товар."""
-    # TODO: implement
-    pass
+
+    product = await db.get(Product, id)
+    if product is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+
+    await db.delete(product)
+    await db.commit()
