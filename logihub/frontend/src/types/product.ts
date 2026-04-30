@@ -15,4 +15,4 @@ export interface ProductCreate {
   unit: string;
 }
 
-export interface ProductUpdate extends Partial<ProductCreate> {}
+export type ProductUpdate = Partial<ProductCreate>;
