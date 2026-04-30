@@ -1,15 +1,20 @@
-import type { ReactNode } from "react";
+"use client";
 
-// TODO: import Sidebar, TopBar, AuthGuard
+import type { ReactNode } from "react";
+import { AuthGuard } from "@/components/layout/AuthGuard";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { TopBar } from "@/components/layout/TopBar";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
-    <div style={{ display: "flex" }}>
-      {/* <Sidebar /> */}
-      <div style={{ flex: 1 }}>
-        {/* <TopBar /> */}
-        <main>{children}</main>
+    <AuthGuard>
+      <div className="flex min-h-screen bg-cream">
+        <Sidebar />
+        <div className="flex flex-1 flex-col">
+          <TopBar />
+          <main className="flex-1 p-6">{children}</main>
+        </div>
       </div>
-    </div>
+    </AuthGuard>
   );
 }
