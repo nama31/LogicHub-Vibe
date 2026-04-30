@@ -111,3 +111,16 @@ class BackendClient:
 		)
 
 		return payload if isinstance(payload, dict) else {"result": payload}
+
+	async def fetch_courier_orders(self, tg_id: int, status_filter: str | None = None) -> list[dict[str, Any]]:
+		"""Получить список заказов курьера."""
+
+		payload = await self.request(
+			"GET",
+			"/bot/orders",
+			headers={"X-Bot-Secret": settings.bot_secret},
+			query={"tg_id": tg_id, "status": status_filter},
+		)
+
+		return payload if isinstance(payload, list) else []
+

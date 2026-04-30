@@ -5,6 +5,7 @@ from datetime import UTC, date, datetime, timedelta
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from constants.price import tiyins_to_som
 from models.order import Order
 from models.product import Product
 from schemas.analytics import SummaryOut, ProfitOut
@@ -28,20 +29,21 @@ async def get_summary(db: AsyncSession) -> SummaryOut:
         open_orders=open_orders,
     )
 
-async def get_profit(db: AsyncSession) -> ProfitOut:
+async def get_profit(db: AsyncSession, from_date: date | None = None, to_date: date | None = None) -> ProfitOut:
     """Получить аналитику прибыли."""
 
-    result = await db.execute(
-        select(
-            func.min(func.date(Order.created_at)).label("min_date"),
-            func.max(func.date(Order.created_at)).label("max_date"),
+    if not from_date or not to_date:
+        result = await db.execute(
+            select(
+                func.min(func.date(Order.created_at)).label("min_date"),
+                func.max(func.date(Order.created_at)).label("max_date"),
+            )
         )
-    )
-    row = result.one()
-    min_date = row.min_date
-    max_date = row.max_date
+        row = result.one()
+        from_date = from_date or row.min_date
+        to_date = to_date or row.max_date
 
-    if min_date is None or max_date is None:
+    if from_date is None or to_date is None:
         today = datetime.now(UTC).date()
         return ProfitOut(
             period={"from": today, "to": today},
@@ -53,18 +55,27 @@ async def get_profit(db: AsyncSession) -> ProfitOut:
     statement = (
         select(
             day_label,
-            func.count(Order.id).label("orders"),
-            func.coalesce(func.sum(Order.sale_price * Order.quantity), 0).label("revenue_som"),
-            func.coalesce(func.sum(Product.purchase_price * Order.quantity), 0).label("cost_som"),
-            func.coalesce(func.sum(Order.courier_fee), 0).label("courier_fees_som"),
+            func.sum(case((Order.status == "delivered", 1), else_=0)).label("orders"),
             func.coalesce(
-                func.sum((Order.sale_price - Product.purchase_price) * Order.quantity - Order.courier_fee),
+                func.sum(case((Order.status == "delivered", Order.sale_price * Order.quantity), else_=0)),
+                0,
+            ).label("revenue_som"),
+            func.coalesce(
+                func.sum(case((Order.status == "delivered", Product.purchase_price * Order.quantity), else_=0)),
+                0,
+            ).label("cost_som"),
+            func.coalesce(
+                func.sum(case((Order.status == "delivered", Order.courier_fee), else_=0)),
+                0,
+            ).label("courier_fees_som"),
+            func.coalesce(
+                func.sum(case((Order.status == "delivered", (Order.sale_price - Product.purchase_price) * Order.quantity - Order.courier_fee), else_=0)),
                 0,
             ).label("profit_som"),
         )
         .select_from(Order)
         .join(Product, Product.id == Order.product_id)
-        .where(func.date(Order.created_at).between(min_date, max_date))
+        .where(func.date(Order.created_at).between(from_date, to_date))
         .group_by(day_label)
         .order_by(day_label)
     )
@@ -76,10 +87,10 @@ async def get_profit(db: AsyncSession) -> ProfitOut:
         {
             "date": row.date,
             "orders": int(row.orders or 0),
-            "revenue_som": int(row.revenue_som or 0),
-            "cost_som": int(row.cost_som or 0),
-            "courier_fees_som": int(row.courier_fees_som or 0),
-            "profit_som": int(row.profit_som or 0),
+            "revenue_som": tiyins_to_som(int(row.revenue_som or 0)),
+            "cost_som": tiyins_to_som(int(row.cost_som or 0)),
+            "courier_fees_som": tiyins_to_som(int(row.courier_fees_som or 0)),
+            "profit_som": tiyins_to_som(int(row.profit_som or 0)),
         }
         for row in rows
     ]
@@ -87,7 +98,7 @@ async def get_profit(db: AsyncSession) -> ProfitOut:
     total_profit_som = sum(item["profit_som"] for item in breakdown)
 
     return ProfitOut(
-        period={"from": min_date, "to": max_date},
+        period={"from": from_date, "to": to_date},
         total_profit_som=total_profit_som,
         breakdown=breakdown,
     )
@@ -104,7 +115,7 @@ async def _get_period_summary(db: AsyncSession, start_date: date, end_date: date
                 0,
             ).label("orders_delivered"),
             func.coalesce(
-                func.sum((Order.sale_price - Product.purchase_price) * Order.quantity - Order.courier_fee),
+                func.sum(case((Order.status == "delivered", (Order.sale_price - Product.purchase_price) * Order.quantity - Order.courier_fee), else_=0)),
                 0,
             ).label("net_profit_som"),
         )
@@ -119,7 +130,7 @@ async def _get_period_summary(db: AsyncSession, start_date: date, end_date: date
     return SummaryPeriodOut(
         orders_created=int(row.orders_created or 0),
         orders_delivered=int(row.orders_delivered or 0),
-        net_profit_som=int(row.net_profit_som or 0),
+        net_profit_som=tiyins_to_som(int(row.net_profit_som or 0)),
     )
 
 

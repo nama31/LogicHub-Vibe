@@ -5,10 +5,10 @@ from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.dependencies import get_db, require_admin
-from schemas.order import OrderOut, OrderListOut, OrderCreate, OrderUpdate, AssignRequest
+from schemas.order import OrderOut, OrderListOut, OrderCreate, OrderUpdate, AssignRequest, StatusEntryOut
 from uuid import UUID
 from models.user import User
-from services.order_service import assign_order as assign_order_service, create_order as create_order_service, delete_order as delete_order_service, get_orders as get_orders_service, update_order as update_order_service
+from services.order_service import assign_order as assign_order_service, create_order as create_order_service, delete_order as delete_order_service, get_orders as get_orders_service, update_order as update_order_service, get_order_by_id as get_order_by_id_service, get_order_timeline as get_order_timeline_service
 from services.notification_service import send_courier_notification
 
 router = APIRouter(prefix="/orders", tags=["orders"], dependencies=[Depends(require_admin)])
@@ -19,17 +19,36 @@ async def get_orders(db: AsyncSession = Depends(get_db)) -> List[OrderListOut]:
 
     return await get_orders_service(db)
 
+@router.get("/{id}", response_model=OrderOut)
+async def get_order_by_id(id: UUID, db: AsyncSession = Depends(get_db)) -> OrderOut:
+    """Получение заказа по ID (admin)."""
+
+    return await get_order_by_id_service(id, db)
+
+@router.get("/{id}/timeline", response_model=List[StatusEntryOut])
+async def get_order_timeline(id: UUID, db: AsyncSession = Depends(get_db)) -> List[StatusEntryOut]:
+    """Получение истории статусов заказа (admin)."""
+
+    return await get_order_timeline_service(id, db)
+
 @router.post("", response_model=OrderOut)
-async def create_order(order: OrderCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_admin)) -> OrderOut:
+async def create_order(order_data: OrderCreate, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_admin)) -> OrderOut:
     """Создание заказа (admin)."""
 
-    return await create_order_service(order, db, current_user)
+    order = await create_order_service(order_data, db, current_user)
+    if order.courier_id:
+        background_tasks.add_task(send_courier_notification, order)
+    return order
 
 @router.patch("/{id}", response_model=OrderOut)
-async def update_order(id: UUID, order: OrderUpdate, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_admin)) -> OrderOut:
+async def update_order(id: UUID, order_data: OrderUpdate, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_admin)) -> OrderOut:
     """Обновление заказа (admin)."""
 
-    return await update_order_service(id, order, db, current_user)
+    order = await update_order_service(id, order_data, db, current_user)
+    # Если статус изменился на assigned или изменился курьер
+    if order.status == "assigned":
+        background_tasks.add_task(send_courier_notification, order)
+    return order
 
 @router.delete("/{id}")
 async def delete_order(id: UUID, db: AsyncSession = Depends(get_db)) -> dict:

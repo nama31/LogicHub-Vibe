@@ -34,6 +34,47 @@ async def bot_webhook(update: dict) -> dict:
     return {"ok": True, "received": bool(update)}
 
 
+@router.get("/orders")
+async def get_courier_orders_bot(
+    tg_id: int,
+    status: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    _secret: bool = Depends(require_bot_secret),
+) -> list:
+    """Получение списка заказов для конкретного курьера (bot_secret required)."""
+
+    statement = (
+        select(Order)
+        .join(User, User.id == Order.courier_id)
+        .options(selectinload(Order.product))
+        .where(User.tg_id == tg_id)
+    )
+    if status:
+        statement = statement.where(Order.status == status)
+    else:
+        # По умолчанию возвращаем только активные
+        statement = statement.where(Order.status.in_(["assigned", "in_transit"]))
+
+    statement = statement.order_by(Order.created_at.desc())
+    
+    result = await db.execute(statement)
+    orders = result.scalars().all()
+    
+    return [
+        {
+            "id": str(o.id),
+            "product_title": o.product.title if o.product else "Товар",
+            "quantity": o.quantity,
+            "status": o.status,
+            "delivery_address": o.delivery_address,
+            "customer_name": o.customer_name,
+            "customer_phone": o.customer_phone,
+            "note": o.note,
+        }
+        for o in orders
+    ]
+
+
 @router.patch("/orders/{id}/status")
 async def update_order_status_bot(
     id: UUID,

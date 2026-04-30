@@ -1,23 +1,88 @@
 "use client";
 
-// GET /analytics/profit?from=&to=&group_by=day|week|courier|product
-// Uses Recharts LineChart / BarChart
-// Install: pnpm add recharts
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  AreaChart,
+  Area
+} from "recharts";
+import type { ProfitOut } from "@/types/analytics";
 
 interface ProfitChartProps {
-  groupBy?: "day" | "week" | "courier" | "product";
-  from?: string;
-  to?: string;
+  data: ProfitOut | null;
 }
 
-export function ProfitChart({ groupBy = "day", from, to }: ProfitChartProps) {
+export function ProfitChart({ data }: ProfitChartProps) {
+  if (!data || !data.breakdown.length) {
+    return (
+      <div className="h-[400px] flex items-center justify-center text-muted-foreground bg-white/30 rounded-3xl border border-dashed border-beige">
+        Нет данных для отображения за выбранный период
+      </div>
+    );
+  }
+
+  // Convert tiyins to som for display
+  const chartData = data.breakdown.map((item) => ({
+    ...item,
+    profit: item.profit_som,
+    revenue: item.revenue_som,
+    formattedDate: new Date(item.date).toLocaleDateString("ru-RU", {
+      day: "numeric",
+      month: "short",
+    }),
+  }));
+
   return (
-    <section aria-label="График прибыли">
-      <p>
-        График прибыли ({groupBy}) {from} → {to}
-      </p>
-      {/* TODO: <LineChart> / <BarChart> from recharts */}
-      {/* Data shape: { date, orders, revenue_som, cost_som, courier_fees_som, profit_som } */}
-    </section>
+    <div className="h-[400px] w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={chartData}>
+          <defs>
+            <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#2C365A" stopOpacity={0.1} />
+              <stop offset="95%" stopColor="#2C365A" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#C4BCB0" opacity={0.2} />
+          <XAxis
+            dataKey="formattedDate"
+            axisLine={false}
+            tickLine={false}
+            tick={{ fill: "#2C365A", fontSize: 12, fontWeight: 500 }}
+            dy={10}
+          />
+          <YAxis
+            axisLine={false}
+            tickLine={false}
+            tick={{ fill: "#2C365A", fontSize: 12, fontWeight: 500 }}
+            tickFormatter={(value) => `${value}`}
+          />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: "#EEE8DF",
+              borderRadius: "16px",
+              border: "1px solid #C4BCB0",
+              boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
+              color: "#2C365A"
+            }}
+            itemStyle={{ color: "#2C365A", fontWeight: "bold" }}
+          />
+          <Area
+            type="monotone"
+            dataKey="profit"
+            name="Прибыль (сом)"
+            stroke="#2C365A"
+            strokeWidth={3}
+            fillOpacity={1}
+            fill="url(#colorProfit)"
+            animationDuration={1500}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
   );
 }

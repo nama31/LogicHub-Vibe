@@ -10,7 +10,7 @@ class Settings(BaseSettings):
 	"""Настройки Telegram-бота."""
 
 	model_config = SettingsConfigDict(
-		env_file=Path(__file__).resolve().parents[2] / "backend" / ".env",
+		env_file=".env",
 		env_file_encoding="utf-8",
 		extra="ignore",
 	)

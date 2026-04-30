@@ -7,7 +7,7 @@ export interface DayBreakdown {
   profit_som: number;
 }
 
-export interface ProfitBreakdown {
+export interface ProfitOut {
   period: { from: string; to: string };
   total_profit_som: number;
   breakdown: DayBreakdown[];

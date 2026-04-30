@@ -40,3 +40,11 @@ export interface OrderListOut {
   count: number;
   orders: Order[];
 }
+
+export interface StatusEntry {
+  id: string;
+  old_status: OrderStatus | null;
+  new_status: OrderStatus;
+  changed_by: string;
+  changed_at: string;
+}

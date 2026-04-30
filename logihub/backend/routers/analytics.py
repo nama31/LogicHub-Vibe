@@ -4,13 +4,14 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 import redis.asyncio as redis
 
+from core.config import settings
 from core.dependencies import get_db, require_admin
 from schemas.analytics import SummaryOut, ProfitOut
 from services.analytics_service import get_profit as get_profit_service, get_summary as get_summary_service
 
 router = APIRouter(prefix="/analytics", tags=["analytics"], dependencies=[Depends(require_admin)])
 
-redis_client = redis.Redis(host="redis", port=6379, decode_responses=True)
+redis_client = redis.from_url(settings.redis_url, decode_responses=True)
 
 @router.get("/summary", response_model=SummaryOut)
 async def get_summary(db: AsyncSession = Depends(get_db)) -> SummaryOut:

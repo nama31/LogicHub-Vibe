@@ -15,3 +15,9 @@ class BotOrderService:
 		"""Отправить статус заказа в backend."""
 
 		return await self._client.update_order_status(order_id=order_id, tg_id=tg_id, new_status=new_status)
+
+	async def get_courier_orders(self, tg_id: int, status_filter: str | None = None) -> list[dict]:
+		"""Получить список заказов курьера."""
+
+		return await self._client.fetch_courier_orders(tg_id=tg_id, status_filter=status_filter)
+

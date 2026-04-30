@@ -109,3 +109,16 @@ class AssignRequest(BaseModel):
     """Назначение курьера."""
 
     courier_id: UUID = Field(...)
+
+
+class StatusEntryOut(BaseModel):
+    """Схема истории статусов."""
+
+    id: UUID = Field(...)
+    old_status: str | None = Field(None)
+    new_status: str = Field(...)
+    changed_by: UUID = Field(...)
+    changed_at: datetime = Field(...)
+
+    class Config:
+        from_attributes = True

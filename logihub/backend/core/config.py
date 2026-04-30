@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     jwt_secret: str | None = Field(default=None, alias="JWT_SECRET")
     bot_secret: str | None = Field(default=None, alias="BOT_SECRET")
     telegram_bot_token: str | None = Field(default=None, alias="TELEGRAM_BOT_TOKEN")
+    redis_url: str = Field(default="redis://localhost:6379", alias="REDIS_URL")
 
 
 settings = Settings()

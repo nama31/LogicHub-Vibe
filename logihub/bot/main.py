@@ -45,8 +45,21 @@ async def main() -> None:
 	dp.include_router(new_orders_router)
 	dp.include_router(status_router)
 
+	# Резильентный запуск: ждем бекенд
+	max_retries = 10
+	for i in range(max_retries):
+		try:
+			await auth_service.refresh()
+			print("✅ Бот успешно подключен к бекенду")
+			break
+		except Exception as e:
+			if i == max_retries - 1:
+				print(f"❌ Не удалось подключиться к бекенду после {max_retries} попыток")
+				raise
+			print(f"⚠️ Ожидание бекенда... (попытка {i+1}/{max_retries})")
+			await asyncio.sleep(3)
+
 	try:
-		await auth_service.refresh()
 		await dp.start_polling(bot)
 	finally:
 		await backend_client.close()

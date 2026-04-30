@@ -26,6 +26,28 @@ async def get_orders(db: AsyncSession) -> List[Order]:
     _serialize_orders(orders)
     return orders
 
+async def get_order_by_id(id: UUID, db: AsyncSession) -> Order:
+    """Получить заказ по ID."""
+    result = await db.execute(
+        select(Order)
+        .options(selectinload(Order.product), selectinload(Order.courier))
+        .where(Order.id == id)
+    )
+    order = result.scalar_one_or_none()
+    if order is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    _serialize_order(order)
+    return order
+
+async def get_order_timeline(id: UUID, db: AsyncSession) -> List[OrderStatusLog]:
+    """Получить историю статусов заказа."""
+    result = await db.execute(
+        select(OrderStatusLog)
+        .where(OrderStatusLog.order_id == id)
+        .order_by(OrderStatusLog.changed_at.asc())
+    )
+    return list(result.scalars().all())
+
 async def create_order(data: OrderCreate, db: AsyncSession, changed_by: User | None = None) -> Order:
     """Создать заказ."""
 
@@ -54,16 +76,21 @@ async def create_order(data: OrderCreate, db: AsyncSession, changed_by: User | N
         customer_phone=data.customer_phone,
         delivery_address=data.delivery_address,
         note=data.note,
+        status="assigned" if courier_id else "new"
     )
 
     product.stock_quantity -= data.quantity
     db.add(order)
     await db.commit()
-    await db.refresh(order)
-
-    order.product = product
-    if courier_id is not None:
-        order.courier = await db.get(User, courier_id)
+    
+    # Рефетчим со связями для безопасной сериализации
+    statement = (
+        select(Order)
+        .options(selectinload(Order.product), selectinload(Order.courier))
+        .where(Order.id == order.id)
+    )
+    result = await db.execute(statement)
+    order = result.scalar_one()
 
     _serialize_order(order)
     return order
@@ -113,11 +140,15 @@ async def update_order(id: UUID, data: OrderUpdate, db: AsyncSession, changed_by
         await _create_status_log(db, order.id, changed_by.id, original_status, order.status)
 
     await db.commit()
-    await db.refresh(order)
 
-    order.product = await db.get(Product, order.product_id)
-    if order.courier_id is not None:
-        order.courier = await db.get(User, order.courier_id)
+    # Рефетчим со связями для безопасной сериализации
+    statement = (
+        select(Order)
+        .options(selectinload(Order.product), selectinload(Order.courier))
+        .where(Order.id == id)
+    )
+    result = await db.execute(statement)
+    order = result.scalar_one()
 
     _serialize_order(order)
     return order
@@ -140,7 +171,15 @@ async def delete_order(id: UUID, db: AsyncSession) -> None:
 async def assign_order(id: UUID, courier_id: UUID, db: AsyncSession, changed_by: User) -> Order:
     """Назначить курьера и перевести заказ в assigned."""
 
-    order = await db.get(Order, id)
+    # Используем select с selectinload для гидратации связей перед передачей в фоновую задачу
+    statement = (
+        select(Order)
+        .options(selectinload(Order.product), selectinload(Order.courier))
+        .where(Order.id == id)
+    )
+    result = await db.execute(statement)
+    order = result.scalar_one_or_none()
+    
     if order is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
 
@@ -158,9 +197,17 @@ async def assign_order(id: UUID, courier_id: UUID, db: AsyncSession, changed_by:
         await _create_status_log(db, order.id, changed_by.id, original_status, order.status)
 
     await db.commit()
-    await db.refresh(order)
-    order.product = await db.get(Product, order.product_id)
-    order.courier = courier
+    
+    # Рефетчим объект целиком со всеми связями после коммита, чтобы избежать MissingGreenlet при сериализации
+    # и гарантировать наличие данных для фоновой задачи.
+    statement = (
+        select(Order)
+        .options(selectinload(Order.product), selectinload(Order.courier))
+        .where(Order.id == id)
+    )
+    result = await db.execute(statement)
+    order = result.scalar_one()
+    
     _serialize_order(order)
     return order
 

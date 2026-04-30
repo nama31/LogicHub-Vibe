@@ -5,8 +5,10 @@ from __future__ import annotations
 import asyncio
 import logging
 from urllib.parse import urlencode
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
+from aiogram import Bot
 from core.config import settings
 from models.order import Order
 
@@ -14,48 +16,93 @@ from models.order import Order
 logger = logging.getLogger(__name__)
 
 
+import json
+import re
+
+def _sanitize_markdown(text: str | None) -> str:
+    """Экранирование спецсимволов для Telegram Markdown."""
+    if not text:
+        return ""
+    # В Markdown (v1) нужно экранировать только определенные символы, если они не являются частью разметки.
+    # Но проще всего заменять их на безопасные аналоги или использовать MarkdownV2 (где нужно экранировать почти всё).
+    # Для простоты и надежности заменим основные проблемные символы.
+    return text.replace("_", "\\_").replace("*", "\\*").replace("[", "\\[").replace("`", "\\`")
+
 async def send_courier_notification(order: Order) -> None:
-    """Отправить уведомление курьеру."""
+    """Отправить уведомление курьеру с использованием aiogram.Bot."""
+    order_id_short = str(order.id)[:8]
+    logger.info("Starting async notification pipeline for order %s", order_id_short)
 
     if not settings.telegram_bot_token:
-        logger.warning("Telegram bot token is not configured; skipping courier notification for order %s", order.id)
+        logger.warning("Telegram bot token is not configured; skipping notification for order %s", order_id_short)
         return
 
-    tg_id = getattr(order.courier, "tg_id", None)
-    if tg_id is None:
-        logger.warning("Courier Telegram ID is missing; skipping courier notification for order %s", order.id)
-        return
+    bot = Bot(token=settings.telegram_bot_token)
+    
+    try:
+        # Проверка наличия курьера и tg_id
+        if not order.courier:
+             logger.error("Order %s has no courier assigned; cannot notify", order_id_short)
+             return
+             
+        tg_id_raw = getattr(order.courier, "tg_id", None)
+        if tg_id_raw is None:
+            logger.warning("Courier %s has no Telegram ID; skipping notification for order %s", order.courier.name, order_id_short)
+            return
+        
+        try:
+            tg_id = int(tg_id_raw)
+            if tg_id <= 0:
+                raise ValueError("Negative or zero ID")
+        except (ValueError, TypeError):
+            logger.error("Invalid Telegram ID format for courier %s: %s", order.courier.name, tg_id_raw)
+            return
 
-    message = _build_courier_notification(order)
-    await asyncio.to_thread(_send_telegram_message, int(tg_id), message)
+        logger.info("Preparing payload for courier %s (TG: %s) for order %s", order.courier.name, tg_id, order_id_short)
+        message = _build_courier_notification(order)
+        
+        # Сборка inline-кнопок через структуру aiogram
+        from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+        
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="🚀 Взял в работу", callback_data=f"order_status:{order.id}:in_transit")],
+                [InlineKeyboardButton(text="✅ Доставлено", callback_data=f"order_status:{order.id}:delivered")],
+                [InlineKeyboardButton(text="⚠️ Проблема", callback_data=f"order_status:{order.id}:failed")]
+            ]
+        )
+        
+        logger.info("Sending message via aiogram.Bot for order %s", order_id_short)
+        await bot.send_message(
+            chat_id=tg_id,
+            text=message,
+            reply_markup=keyboard,
+            parse_mode="Markdown"
+        )
+        logger.info("Notification sent successfully for order %s", order_id_short)
+
+    except Exception as e:
+        # aiogram обычно выбрасывает понятные исключения (TelegramBadRequest и т.д.)
+        logger.error("Failed to send notification for order %s: %s", order_id_short, str(e), exc_info=True)
+    finally:
+        # Закрываем сессию бота
+        await bot.session.close()
 
 
 def _build_courier_notification(order: Order) -> str:
-    product_title = getattr(order.product, "title", "Товар")
-    customer_name = order.customer_name or "не указано"
-    customer_phone = order.customer_phone or "не указано"
-    note = order.note or "нет"
+    product_title = _sanitize_markdown(getattr(order.product, "title", "Товар"))
+    customer_name = _sanitize_markdown(order.customer_name or "не указано")
+    customer_phone = _sanitize_markdown(order.customer_phone or "не указано")
+    note = _sanitize_markdown(order.note or "нет")
+    address = _sanitize_markdown(order.delivery_address or "не указан")
 
     return (
-        "Вам назначен новый заказ.\n"
-        f"Заказ: {order.id}\n"
-        f"Товар: {product_title}\n"
-        f"Количество: {order.quantity}\n"
-        f"Клиент: {customer_name}\n"
-        f"Телефон: {customer_phone}\n"
-        f"Адрес: {order.delivery_address}\n"
-        f"Комментарий: {note}"
+        "🔔 *Вам назначен новый заказ!*\\n\\n"
+        f"📦 *Заказ:* `{str(order.id)[:8]}`\\n"
+        f"🍎 *Товар:* {product_title} ({order.quantity} шт.)\\n"
+        f"👤 *Клиент:* {customer_name}\\n"
+        f"📞 *Телефон:* {customer_phone}\\n"
+        f"📍 *Адрес:* {address}\\n"
+        f"📝 *Комментарий:* {note}\\n\\n"
+        "Нажмите кнопку ниже, чтобы изменить статус."
     )
-
-
-def _send_telegram_message(chat_id: int, text: str) -> None:
-    url = f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage"
-    payload = urlencode({"chat_id": chat_id, "text": text}).encode("utf-8")
-    request = Request(url, data=payload, method="POST")
-    request.add_header("Content-Type", "application/x-www-form-urlencoded")
-
-    try:
-        with urlopen(request, timeout=10) as response:
-            response.read()
-    except Exception:
-        logger.exception("Failed to send Telegram notification to courier %s", chat_id)

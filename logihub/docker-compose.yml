@@ -36,7 +36,7 @@ services:
     network_mode: host
     volumes:
       - ./backend:/app/backend
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    command: sh -c "alembic -c migrations/alembic.ini upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
 
   frontend:
     build:
@@ -52,7 +52,22 @@ services:
       - ./frontend:/app/frontend
       - frontend_next:/app/frontend/.next
       - frontend_node_modules:/app/frontend/node_modules
-    command: sh -c "set -e; if [ ! -x node_modules/.bin/next ]; then CI=true pnpm install --frozen-lockfile --config.confirmModulesPurge=false; fi; exec pnpm run dev"
+    command: sh -c "[ -d node_modules ] && [ \"$(ls -A node_modules)\" ] || pnpm install; exec pnpm run dev"
+
+  bot:
+    build:
+      context: ./bot
+    container_name: logihub_bot
+    restart: always
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - backend
+    network_mode: host
+    volumes:
+      - ./bot:/app/bot
+    command: python main.py
+
 
 volumes:
   postgres_data:
