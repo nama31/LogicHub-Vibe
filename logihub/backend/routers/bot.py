@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from core.dependencies import get_db, require_bot_secret
+from core.websocket import manager
 from constants.order_status import STATUS_TRANSITIONS
 from models.order import Order
 from models.order_status_log import OrderStatusLog
@@ -76,4 +77,11 @@ async def update_order_status_bot(
     )
 
     await db.commit()
+
+    await manager.broadcast({
+        "event": "order_updated",
+        "order_id": str(order.id),
+        "new_status": payload.new_status
+    })
+
     return {"id": str(order.id), "status": order.status}
