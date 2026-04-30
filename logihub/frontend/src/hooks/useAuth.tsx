@@ -5,7 +5,6 @@ import {
   useContext,
   useState,
   useEffect,
-  useRef,
   type ReactNode,
 } from "react";
 import { getToken, setToken, clearToken } from "@/lib/auth";
@@ -41,12 +40,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const didFetch = useRef(false);
 
   useEffect(() => {
-    if (didFetch.current) return;
-    didFetch.current = true;
-
     let cancelled = false;
     const token = getToken();
     const fetchPromise = token
