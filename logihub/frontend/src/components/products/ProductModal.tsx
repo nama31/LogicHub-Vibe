@@ -1,9 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useEffect, useState, type FormEvent } from "react";
 import type { Product } from "@/types/product";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,20 +8,20 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 
-const productSchema = z.object({
-  title: z.string().min(1, "Введите название"),
-  purchase_price_som: z.number({ invalid_type_error: "Введите число" }).int("Введите целое число").min(0, "Цена не может быть отрицательной"),
-  stock_quantity: z.number({ invalid_type_error: "Введите число" }).int("Введите целое число").min(0, "Количество не может быть отрицательным"),
-  unit: z.string().min(1, "Введите единицу измерения"),
-});
+type ProductFormData = {
+  title: string;
+  purchase_price_som: number;
+  stock_quantity: number;
+  unit: string;
+};
 
-type ProductFormData = z.infer<typeof productSchema>;
+type ProductFormErrors = Partial<Record<keyof ProductFormData, string>>;
 
 interface ProductModalProps {
   product?: Product;
@@ -33,46 +30,97 @@ interface ProductModalProps {
   onSubmit: (data: ProductFormData) => Promise<void>;
 }
 
+const EMPTY_VALUES: ProductFormData = {
+  title: "",
+  purchase_price_som: 0,
+  stock_quantity: 0,
+  unit: "шт",
+};
+
 export function ProductModal({ product, open, onClose, onSubmit }: ProductModalProps) {
   const isEdit = Boolean(product);
-
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors, isSubmitting },
-  } = useForm<ProductFormData>({
-    resolver: zodResolver(productSchema),
-    defaultValues: {
-      title: "",
-      purchase_price_som: 0,
-      stock_quantity: 0,
-      unit: "шт",
-    },
-  });
+  const [values, setValues] = useState<ProductFormData>(EMPTY_VALUES);
+  const [errors, setErrors] = useState<ProductFormErrors>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (open) {
-      reset(
-        product
-          ? {
-              title: product.title,
-              purchase_price_som: product.purchase_price_som,
-              stock_quantity: product.stock_quantity,
-              unit: product.unit,
-            }
-          : { title: "", purchase_price_som: 0, stock_quantity: 0, unit: "шт" },
-      );
-    }
-  }, [open, product, reset]);
+    if (!open) return;
 
-  async function handleFormSubmit(data: ProductFormData) {
-    await onSubmit(data);
-    onClose();
+    setValues(
+      product
+        ? {
+            title: product.title,
+            purchase_price_som: product.purchase_price_som,
+            stock_quantity: product.stock_quantity,
+            unit: product.unit,
+          }
+        : EMPTY_VALUES,
+    );
+    setErrors({});
+    setIsSubmitting(false);
+  }, [open, product]);
+
+  function updateField<K extends keyof ProductFormData>(field: K, value: ProductFormData[K]) {
+    setValues((current) => ({ ...current, [field]: value }));
+    setErrors((current) => ({ ...current, [field]: undefined }));
+  }
+
+  function validate(nextValues: ProductFormData): ProductFormErrors {
+    const nextErrors: ProductFormErrors = {};
+
+    if (!nextValues.title.trim()) nextErrors.title = "Введите название";
+
+    if (!Number.isFinite(nextValues.purchase_price_som)) {
+      nextErrors.purchase_price_som = "Введите число";
+    } else if (!Number.isInteger(nextValues.purchase_price_som)) {
+      nextErrors.purchase_price_som = "Введите целое число";
+    } else if (nextValues.purchase_price_som < 0) {
+      nextErrors.purchase_price_som = "Цена не может быть отрицательной";
+    }
+
+    if (!Number.isFinite(nextValues.stock_quantity)) {
+      nextErrors.stock_quantity = "Введите число";
+    } else if (!Number.isInteger(nextValues.stock_quantity)) {
+      nextErrors.stock_quantity = "Введите целое число";
+    } else if (nextValues.stock_quantity < 0) {
+      nextErrors.stock_quantity = "Количество не может быть отрицательным";
+    }
+
+    if (!nextValues.unit.trim()) nextErrors.unit = "Введите единицу измерения";
+
+    return nextErrors;
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const nextErrors = validate(values);
+    setErrors(nextErrors);
+
+    if (Object.keys(nextErrors).length > 0) return;
+
+    setIsSubmitting(true);
+
+    try {
+      await onSubmit({
+        title: values.title.trim(),
+        purchase_price_som: values.purchase_price_som,
+        stock_quantity: values.stock_quantity,
+        unit: values.unit.trim(),
+      });
+      onClose();
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
-    <Dialog open={open} onOpenChange={(val) => { if (!val) onClose(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onClose();
+      }}
+    >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-ocean">
@@ -83,18 +131,17 @@ export function ProductModal({ product, open, onClose, onSubmit }: ProductModalP
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="title">Название</Label>
             <Input
               id="title"
               placeholder="Например: Молоко 1л"
               className="h-10"
-              {...register("title")}
+              value={values.title}
+              onChange={(e) => updateField("title", e.target.value)}
             />
-            {errors.title && (
-              <p className="text-xs text-destructive">{errors.title.message}</p>
-            )}
+            {errors.title && <p className="text-xs text-destructive">{errors.title}</p>}
           </div>
 
           <div className="space-y-2">
@@ -105,10 +152,11 @@ export function ProductModal({ product, open, onClose, onSubmit }: ProductModalP
               min={0}
               placeholder="0"
               className="h-10"
-              {...register("purchase_price_som", { valueAsNumber: true })}
+              value={Number.isFinite(values.purchase_price_som) ? String(values.purchase_price_som) : ""}
+              onChange={(e) => updateField("purchase_price_som", Number(e.target.value))}
             />
             {errors.purchase_price_som && (
-              <p className="text-xs text-destructive">{errors.purchase_price_som.message}</p>
+              <p className="text-xs text-destructive">{errors.purchase_price_som}</p>
             )}
           </div>
 
@@ -121,10 +169,11 @@ export function ProductModal({ product, open, onClose, onSubmit }: ProductModalP
                 min={0}
                 placeholder="0"
                 className="h-10"
-                {...register("stock_quantity", { valueAsNumber: true })}
+                value={Number.isFinite(values.stock_quantity) ? String(values.stock_quantity) : ""}
+                onChange={(e) => updateField("stock_quantity", Number(e.target.value))}
               />
               {errors.stock_quantity && (
-                <p className="text-xs text-destructive">{errors.stock_quantity.message}</p>
+                <p className="text-xs text-destructive">{errors.stock_quantity}</p>
               )}
             </div>
 
@@ -134,11 +183,10 @@ export function ProductModal({ product, open, onClose, onSubmit }: ProductModalP
                 id="unit"
                 placeholder="шт, кг, л..."
                 className="h-10"
-                {...register("unit")}
+                value={values.unit}
+                onChange={(e) => updateField("unit", e.target.value)}
               />
-              {errors.unit && (
-                <p className="text-xs text-destructive">{errors.unit.message}</p>
-              )}
+              {errors.unit && <p className="text-xs text-destructive">{errors.unit}</p>}
             </div>
           </div>
 
@@ -147,11 +195,7 @@ export function ProductModal({ product, open, onClose, onSubmit }: ProductModalP
               Отмена
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting
-                ? "Сохранение..."
-                : isEdit
-                  ? "Сохранить"
-                  : "Добавить"}
+              {isSubmitting ? "Сохранение..." : isEdit ? "Сохранить" : "Добавить"}
             </Button>
           </DialogFooter>
         </form>
