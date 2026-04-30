@@ -19,8 +19,8 @@ import {
 
 const productSchema = z.object({
   title: z.string().min(1, "Введите название"),
-  purchase_price_som: z.number().int().min(0, "Цена не может быть отрицательной"),
-  stock_quantity: z.number().int().min(0, "Количество не может быть отрицательным"),
+  purchase_price_som: z.number({ invalid_type_error: "Введите число" }).int("Введите целое число").min(0, "Цена не может быть отрицательной"),
+  stock_quantity: z.number({ invalid_type_error: "Введите число" }).int("Введите целое число").min(0, "Количество не может быть отрицательным"),
   unit: z.string().min(1, "Введите единицу измерения"),
 });
 
