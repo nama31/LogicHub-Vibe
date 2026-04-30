@@ -9,6 +9,7 @@ export function useProducts() {
   const [loading, setLoading] = useState(true);
 
   const fetchProducts = useCallback(async () => {
+    setLoading(true);
     try {
       const data = await apiGet<Product[]>("/products");
       setProducts(data);
