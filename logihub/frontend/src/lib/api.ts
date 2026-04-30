@@ -16,12 +16,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (res.status === 401) {
     clearToken();
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && window.location.pathname !== "/login") {
       window.location.href = "/login";
     }
     const error: ApiError = {
       error: "unauthorized",
-      message: "Сессия истекла. Пожалуйста, войдите снова.",
+      message: "Неверные данные для входа.",
     };
     throw error;
   }
