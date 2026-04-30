@@ -13,16 +13,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ApiError } from "@/types/api";
 
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
 
-  const [method, setMethod] = useState<"password" | "telegram">("password");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [tgId, setTgId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -32,12 +30,7 @@ export default function LoginPage() {
     setSubmitting(true);
 
     try {
-      const credentials =
-        method === "password"
-          ? { password }
-          : { tg_id: Number(tgId) };
-
-      await login(credentials);
+      await login({ username, password });
       router.push("/");
     } catch (err: unknown) {
       const apiErr = err as ApiError;
@@ -66,63 +59,47 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs
-            defaultValue="password"
-            onValueChange={(val) => {
-              setMethod(val as "password" | "telegram");
-              setErrorMsg(null);
-            }}
-          >
-            <TabsList className="mb-4 w-full">
-              <TabsTrigger value="password">Пароль</TabsTrigger>
-              <TabsTrigger value="telegram">Telegram ID</TabsTrigger>
-            </TabsList>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="username">Имя пользователя или Telegram ID</Label>
+              <Input
+                id="username"
+                type="text"
+                placeholder="Имя или Telegram ID"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+                autoComplete="username"
+                className="h-10"
+              />
+            </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <TabsContent value="password">
-                <div className="space-y-2">
-                  <Label htmlFor="password">Пароль</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="Введите пароль"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required={method === "password"}
-                    autoComplete="current-password"
-                    className="h-10"
-                  />
-                </div>
-              </TabsContent>
+            <div className="space-y-2">
+              <Label htmlFor="password">Пароль</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="Введите пароль"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                className="h-10"
+              />
+            </div>
 
-              <TabsContent value="telegram">
-                <div className="space-y-2">
-                  <Label htmlFor="tg_id">Telegram ID</Label>
-                  <Input
-                    id="tg_id"
-                    type="number"
-                    placeholder="Например: 123456789"
-                    value={tgId}
-                    onChange={(e) => setTgId(e.target.value)}
-                    required={method === "telegram"}
-                    className="h-10"
-                  />
-                </div>
-              </TabsContent>
+            {errorMsg && (
+              <p className="text-sm text-destructive">{errorMsg}</p>
+            )}
 
-              {errorMsg && (
-                <p className="text-sm text-destructive">{errorMsg}</p>
-              )}
-
-              <Button
-                type="submit"
-                disabled={submitting}
-                className="h-10 w-full text-sm font-semibold"
-              >
-                {submitting ? "Вход..." : "Войти"}
-              </Button>
-            </form>
-          </Tabs>
+            <Button
+              type="submit"
+              disabled={submitting}
+              className="h-10 w-full text-sm font-semibold"
+            >
+              {submitting ? "Вход..." : "Войти"}
+            </Button>
+          </form>
         </CardContent>
       </Card>
     </div>

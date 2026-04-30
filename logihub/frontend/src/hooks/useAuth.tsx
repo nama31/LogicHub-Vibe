@@ -11,18 +11,14 @@ import { getToken, setToken, clearToken } from "@/lib/auth";
 import { apiGet, apiPost } from "@/lib/api";
 import type { User } from "@/types/user";
 
-interface LoginResponse {
-  user: User;
-  token: string;
-}
-
-interface MeResponse {
-  user: User;
+interface TokenResponse {
+  access_token: string;
+  token_type: string;
 }
 
 interface LoginCredentials {
-  tg_id?: number;
-  password?: string;
+  username: string;
+  password: string;
 }
 
 interface AuthState {
@@ -30,7 +26,7 @@ interface AuthState {
   loading: boolean;
   error: string | null;
   setError: (msg: string | null) => void;
-  login: (credentials: LoginCredentials) => Promise<User>;
+  login: (credentials: LoginCredentials) => Promise<void>;
   logout: () => void;
 }
 
@@ -45,12 +41,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     const token = getToken();
     const fetchPromise = token
-      ? apiGet<MeResponse>("/auth/me")
+      ? apiGet<User>("/auth/me")
       : Promise.resolve(null);
 
     fetchPromise
       .then((data) => {
-        if (!cancelled && data) setUser(data.user);
+        if (!cancelled && data) setUser(data);
       })
       .catch(() => {
         if (!cancelled) {
@@ -67,12 +63,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  async function login(credentials: LoginCredentials): Promise<User> {
+  async function login(credentials: LoginCredentials): Promise<void> {
     setError(null);
-    const data = await apiPost<LoginResponse>("/auth/login", credentials);
-    setToken(data.token);
-    setUser(data.user);
-    return data.user;
+    const data = await apiPost<TokenResponse>("/auth/login", credentials);
+    setToken(data.access_token);
+    const me = await apiGet<User>("/auth/me");
+    setUser(me);
   }
 
   function logout() {
