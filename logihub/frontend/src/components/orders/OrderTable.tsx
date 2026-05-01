@@ -54,7 +54,7 @@ export function OrderTable({ orders = [], onAssign }: OrderTableProps) {
         </TableHeader>
         <TableBody>
           {orders.length === 0 ? (
-             <TableRow>
+            <TableRow>
               <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                 Нет заказов
               </TableCell>
@@ -62,7 +62,7 @@ export function OrderTable({ orders = [], onAssign }: OrderTableProps) {
           ) : (
             orders.map((o) => (
               <TableRow key={o.id} className="hover:bg-muted/50 transition-colors">
-                <TableCell className="font-medium text-ocean font-mono text-xs" title={o.id}>
+                <TableCell className="font-medium text-ocean font-mono text-xs" title={String(o.id)}>
                   {o.id}
                 </TableCell>
                 <TableCell className="text-ocean">{o.product?.title}</TableCell>
