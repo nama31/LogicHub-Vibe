@@ -2,7 +2,7 @@
 
 from typing import List
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, func, literal
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,6 +16,29 @@ async def get_users(db: AsyncSession) -> List[User]:
 
     result = await db.execute(select(User).order_by(User.created_at.desc()))
     return list(result.scalars().all())
+
+async def get_user_by_phone(phone: str, db: AsyncSession) -> User | None:
+    """Найти пользователя по номеру телефона (ленивый поиск по цифрам)."""
+    
+    if not phone:
+        return None
+
+    # Оставляем только цифры из входящего номера
+    clean_target = "".join(filter(str.isdigit, phone))
+    
+    if not clean_target:
+        return None
+
+    # Ищем пользователя, у которого очищенный номер телефона совпадает с нашим (с учетом возможных префиксов)
+    db_clean_phone = func.regexp_replace(User.phone, r'\D', '', 'g')
+    result = await db.execute(
+        select(User).where(
+            (db_clean_phone == clean_target) |
+            (db_clean_phone.like(f"%{clean_target}")) |
+            (literal(clean_target).like(func.concat('%', db_clean_phone)))
+        ).order_by(func.length(User.phone).desc())
+    )
+    return result.scalars().first()
 
 async def create_user(data: UserCreate, db: AsyncSession) -> User:
     """Создать пользователя."""
@@ -74,3 +97,13 @@ async def update_user(id: UUID, data: UserUpdate, db: AsyncSession) -> User:
 
     await db.refresh(user)
     return user
+
+async def delete_user(id: UUID, db: AsyncSession) -> None:
+    """Удалить пользователя."""
+
+    user = await db.get(User, id)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    await db.delete(user)
+    await db.commit()

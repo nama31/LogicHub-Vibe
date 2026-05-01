@@ -22,7 +22,7 @@ class User(Base):
     role: Mapped[str] = mapped_column(SQLEnum(*USER_ROLES, name="user_role"), nullable=False)
     tg_id: Mapped[int | None] = mapped_column(BigInteger, unique=True, nullable=True)
     password_hash: Mapped[str | None] = mapped_column(String, nullable=True)
-    phone: Mapped[str | None] = mapped_column(String, nullable=True)
+    phone: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 

@@ -34,6 +34,11 @@ class CourierAuthMiddleware(BaseMiddleware):
 			allowed = False
 
 		if not allowed:
+			# Разрешаем /start и отправку контакта для процесса регистрации
+			if isinstance(event, Message) and (event.text == "/start" or event.contact is not None):
+				data["courier_tg_id"] = None
+				return await handler(event, data)
+				
 			await self._deny(event)
 			return None
 

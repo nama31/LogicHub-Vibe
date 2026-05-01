@@ -1,7 +1,7 @@
 export type OrderStatus = "new" | "assigned" | "in_transit" | "delivered" | "failed";
 
 export interface Order {
-  id: string;
+  id: number;
   product: { id: string; title: string };
   courier?: { id: string; name: string } | null;
   quantity: number;

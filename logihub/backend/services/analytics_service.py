@@ -155,10 +155,11 @@ async def _get_open_orders(db: AsyncSession):
 async def _get_stock_alerts(db: AsyncSession):
     from schemas.analytics import StockAlertOut
 
+    # Получаем 5 товаров с самым низким остатком в принципе
     result = await db.execute(
         select(Product.id, Product.title, Product.stock_quantity)
-        .where(Product.stock_quantity < 5)
         .order_by(Product.stock_quantity.asc(), Product.title.asc())
+        .limit(5)
     )
 
     return [

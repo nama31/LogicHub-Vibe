@@ -51,7 +51,7 @@ export default function OrderDetailPage() {
             <ArrowLeft className="size-6 text-ocean" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-ocean">Заказ #{order.id.split('-')[0]}</h1>
+            <h1 className="text-3xl font-bold text-ocean">Заказ #{order.id}</h1>
             <p className="text-muted-foreground flex items-center gap-2 text-sm mt-1">
               <Calendar className="size-4" />
               {new Date(order.created_at).toLocaleString('ru-RU')}

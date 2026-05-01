@@ -20,7 +20,7 @@ async def new_orders_handler(message: Message, courier_tg_id: int, order_service
 	
 	for o in orders:
 		text = (
-			f"📦 *Заказ:* `{o['id'][:8]}`\\n"
+			f"📦 *Заказ:* `{o['id']}`\\n"
 			f"🍎 *Товар:* {o['product_title']} ({o['quantity']} шт.)\\n"
 			f"📍 *Адрес:* {o['delivery_address']}\\n"
 			f"👤 *Клиент:* {o['customer_name'] or 'не указано'}\\n"

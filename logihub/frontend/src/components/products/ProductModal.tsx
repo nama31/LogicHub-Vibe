@@ -27,7 +27,7 @@ interface ProductModalProps {
   product?: Product;
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: ProductFormData) => Promise<void>;
+  onSubmit: (data: ProductFormData) => Promise<any>;
 }
 
 const EMPTY_VALUES: ProductFormData = {

@@ -51,21 +51,21 @@ export function useOrders(params?: {
     return created;
   }, []);
 
-  const updateOrder = useCallback(async (id: string, data: OrderUpdate) => {
+  const updateOrder = useCallback(async (id: number | string, data: OrderUpdate) => {
     const updated = await apiPatch<Order>(`/orders/${id}`, data);
-    setOrders((prev) => prev.map((o) => (o.id === id ? updated : o)));
+    setOrders((prev) => prev.map((o) => (o.id.toString() === id.toString() ? updated : o)));
     return updated;
   }, []);
 
-  const assignCourier = useCallback(async (id: string, courier_id: string) => {
+  const assignCourier = useCallback(async (id: number | string, courier_id: string) => {
     const assigned = await apiPost<Order>(`/orders/${id}/assign`, { courier_id });
-    setOrders((prev) => prev.map((o) => (o.id === id ? assigned : o)));
+    setOrders((prev) => prev.map((o) => (o.id.toString() === id.toString() ? assigned : o)));
     return assigned;
   }, []);
   
-  const deleteOrder = useCallback(async (id: string) => {
+  const deleteOrder = useCallback(async (id: number | string) => {
     await apiDel(`/orders/${id}`);
-    setOrders((prev) => prev.filter((o) => o.id !== id));
+    setOrders((prev) => prev.filter((o) => o.id.toString() !== id.toString()));
   }, []);
 
   return {
@@ -80,7 +80,7 @@ export function useOrders(params?: {
   };
 }
 
-export function useOrder(id: string) {
+export function useOrder(id: number | string) {
   const [order, setOrder] = useState<Order | null>(null);
   const [timeline, setTimeline] = useState<StatusEntry[]>([]);
   const [loading, setLoading] = useState(true);

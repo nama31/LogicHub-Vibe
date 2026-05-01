@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Plus } from "lucide-react";
 
 export default function CouriersPage() {
-  const { couriers, loading, createCourier, updateCourier } = useCouriers();
+  const { couriers, loading, createCourier, updateCourier, deleteCourier } = useCouriers();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCourier, setEditingCourier] = useState<User | undefined>(undefined);
 
@@ -22,6 +22,12 @@ export default function CouriersPage() {
   const handleOpenEdit = (user: User) => {
     setEditingCourier(user);
     setModalOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm("Вы уверены, что хотите удалить этого курьера?")) {
+      await deleteCourier(id);
+    }
   };
 
   const handleSubmit = async (data: any) => {
@@ -52,7 +58,7 @@ export default function CouriersPage() {
           <Skeleton className="h-20 w-full bg-beige/30" />
         </div>
       ) : (
-        <CourierTable couriers={couriers} onEdit={handleOpenEdit} />
+        <CourierTable couriers={couriers} onEdit={handleOpenEdit} onDelete={handleDelete} />
       )}
 
       <CourierModal

@@ -27,7 +27,7 @@ interface CourierModalProps {
   courier?: User;
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: CourierFormData) => Promise<void>;
+  onSubmit: (data: CourierFormData) => Promise<any>;
 }
 
 const EMPTY_VALUES: CourierFormData = {
@@ -41,6 +41,32 @@ export function CourierModal({ courier, open, onClose, onSubmit }: CourierModalP
   const [values, setValues] = useState<CourierFormData>(EMPTY_VALUES);
   const [errors, setErrors] = useState<CourierFormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const formatPhoneNumber = (input: string) => {
+    const digits = input.replace(/\D/g, "");
+    if (digits.length === 0) return "";
+    
+    let cleanDigits = digits;
+    // Если введено с 996 в начале, убираем его для форматирования
+    if (digits.startsWith("996")) {
+      cleanDigits = digits.substring(3);
+    }
+    
+    const main = cleanDigits.substring(0, 9);
+    let formatted = "+996";
+    
+    if (main.length > 0) {
+      formatted += " " + main.substring(0, 3);
+    }
+    if (main.length > 3) {
+      formatted += " " + main.substring(3, 6);
+    }
+    if (main.length > 6) {
+      formatted += " " + main.substring(6, 9);
+    }
+    
+    return formatted;
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -71,8 +97,8 @@ export function CourierModal({ courier, open, onClose, onSubmit }: CourierModalP
       nextErrors.name = "Введите имя курьера";
     }
 
-    if (nextValues.tg_id === null || nextValues.tg_id <= 0) {
-      nextErrors.tg_id = "Введите корректный Telegram ID";
+    if (!nextValues.phone?.trim()) {
+      nextErrors.phone = "Введите номер телефона для регистрации в боте";
     }
 
     return nextErrors;
@@ -90,10 +116,13 @@ export function CourierModal({ courier, open, onClose, onSubmit }: CourierModalP
 
     try {
       const phoneValue = values.phone?.trim() || "";
+      // Сохраняем в БД чистый номер с плюсом для консистентности
+      const cleanPhone = phoneValue ? "+" + phoneValue.replace(/\D/g, "") : "";
+      
       await onSubmit({
         name: values.name.trim(),
         tg_id: values.tg_id,
-        ...(phoneValue ? { phone: phoneValue } : {}),
+        ...(cleanPhone ? { phone: cleanPhone } : {}),
         is_active: values.is_active,
       });
       onClose();
@@ -135,30 +164,36 @@ export function CourierModal({ courier, open, onClose, onSubmit }: CourierModalP
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="tg_id" className="text-ocean font-medium">Telegram ID</Label>
+            <Label htmlFor="tg_id" className="text-ocean font-medium">Telegram ID (необязательно)</Label>
             <Input
               id="tg_id"
               type="number"
-              placeholder="Например: 123456789"
-              className="h-10 border-beige focus-visible:ring-ocean"
+              placeholder="Будет заполнено автоматически при регистрации"
+              className="h-10 border-beige focus-visible:ring-ocean bg-beige/10"
               value={values.tg_id === null ? "" : values.tg_id}
               onChange={(e) => {
                 const val = e.target.value;
                 updateField("tg_id", val === "" ? null : Number(val));
               }}
             />
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Если оставить пустым, курьер сможет зарегистрироваться сам через бот по номеру телефона.
+            </p>
             {errors.tg_id && <p className="text-xs text-destructive">{errors.tg_id}</p>}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="phone" className="text-ocean font-medium">Телефон (необязательно)</Label>
+            <Label htmlFor="phone" className="text-ocean font-medium">Телефон (для регистрации в боте)</Label>
             <Input
               id="phone"
               type="tel"
-              placeholder="+996 555 123 456"
+              placeholder="+996 771 123 456"
               className="h-10 border-beige focus-visible:ring-ocean"
               value={values.phone}
-              onChange={(e) => updateField("phone", e.target.value)}
+              onChange={(e) => {
+                const formatted = formatPhoneNumber(e.target.value);
+                updateField("phone", formatted);
+              }}
             />
             {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
           </div>

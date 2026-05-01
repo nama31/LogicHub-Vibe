@@ -34,7 +34,7 @@ type OrderFormValues = z.infer<typeof orderSchema>;
 interface OrderFormProps {
   orderId?: string;
   onSuccess?: () => void;
-  onSubmit: (data: OrderCreate) => Promise<void>;
+  onSubmit: (data: OrderCreate) => Promise<any>;
 }
 
 export function OrderForm({ orderId, onSuccess, onSubmit }: OrderFormProps) {
@@ -82,7 +82,7 @@ export function OrderForm({ orderId, onSuccess, onSubmit }: OrderFormProps) {
         {/* Product Selection */}
         <div className="space-y-2">
           <label className="text-sm font-medium text-ocean ml-1">Товар</label>
-          <Select onValueChange={(val) => setValue("product_id", val)}>
+          <Select onValueChange={(val) => setValue("product_id", val as string)}>
             <SelectTrigger className="w-full bg-cream/30 border-beige text-ocean h-11 rounded-xl">
               <SelectValue placeholder="Выберите товар" />
             </SelectTrigger>
@@ -173,7 +173,7 @@ export function OrderForm({ orderId, onSuccess, onSubmit }: OrderFormProps) {
         {/* Courier Assignment (Optional at creation) */}
         <div className="col-span-full space-y-2">
           <label className="text-sm font-medium text-ocean ml-1">Назначить курьера (необязательно)</label>
-          <Select onValueChange={(val) => setValue("courier_id", val)}>
+          <Select onValueChange={(val) => setValue("courier_id", val as string)}>
             <SelectTrigger className="w-full bg-cream/30 border-beige text-ocean h-11 rounded-xl">
               <SelectValue placeholder="Выберите курьера" />
             </SelectTrigger>

@@ -3,7 +3,7 @@
 import datetime as dt
 import uuid
 
-from sqlalchemy import DateTime, Enum as SQLEnum, ForeignKey, Integer, String, func
+from sqlalchemy import DateTime, Enum as SQLEnum, ForeignKey, Identity, Integer, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -17,7 +17,7 @@ class Order(Base):
 
     __tablename__ = "orders"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     product_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False)
     courier_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)

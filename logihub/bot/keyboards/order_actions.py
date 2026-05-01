@@ -3,7 +3,7 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 
-def build_order_actions_keyboard(order_id: str) -> InlineKeyboardMarkup:
+def build_order_actions_keyboard(order_id: int | str) -> InlineKeyboardMarkup:
 	"""Собрать клавиатуру действий по заказу."""
 
 	return InlineKeyboardMarkup(

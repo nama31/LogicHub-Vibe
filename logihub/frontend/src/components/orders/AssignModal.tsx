@@ -20,7 +20,7 @@ import { useCouriers } from "@/hooks/useCouriers";
 import { useOrders } from "@/hooks/useOrders";
 
 interface AssignModalProps {
-  orderId: string;
+  orderId: number | string;
   isOpen: boolean;
   onClose: () => void;
   onAssigned?: () => void;
@@ -56,12 +56,12 @@ export function AssignModal({ orderId, isOpen, onClose, onAssigned }: AssignModa
           
           <div className="space-y-6">
             <p className="text-muted-foreground leading-relaxed">
-              Выберите ответственного курьера для выполнения заказа <span className="font-bold text-ocean">#{orderId.split('-')[0]}</span>.
+              Выберите ответственного курьера для выполнения заказа <span className="font-bold text-ocean">#{orderId}</span>.
             </p>
             
             <div className="space-y-3">
               <label className="text-sm font-semibold text-ocean ml-1">Активные курьеры</label>
-              <Select onValueChange={setSelectedCourierId} value={selectedCourierId}>
+              <Select onValueChange={(val) => setSelectedCourierId(val as string)} value={selectedCourierId}>
                 <SelectTrigger className="w-full bg-cream/30 border-beige text-ocean h-12 rounded-xl transition-all focus:ring-2 focus:ring-ocean/10">
                   <SelectValue placeholder="Выберите курьера из списка" />
                 </SelectTrigger>

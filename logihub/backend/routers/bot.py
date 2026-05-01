@@ -27,6 +27,37 @@ class BotStatusUpdateRequest(BaseModel):
     tg_id: int = Field(..., ge=1)
 
 
+class BotRegisterRequest(BaseModel):
+    """Запрос на регистрацию курьера через бот."""
+
+    phone: str = Field(..., min_length=5)
+    tg_id: int = Field(..., ge=1)
+
+
+@router.post("/register")
+async def register_courier_bot(
+    payload: BotRegisterRequest,
+    db: AsyncSession = Depends(get_db),
+    _secret: bool = Depends(require_bot_secret),
+) -> dict:
+    """Регистрация курьера по номеру телефона."""
+
+    from services.user_service import get_user_by_phone
+    
+    user = await get_user_by_phone(payload.phone, db)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User with this phone not found")
+    
+    if user.role != "courier":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is not a courier")
+
+    user.tg_id = payload.tg_id
+    user.is_active = True
+    
+    await db.commit()
+    return {"status": "ok", "user_id": str(user.id)}
+
+
 @router.post("/webhook")
 async def bot_webhook(update: dict) -> dict:
     """Вебхук для aiogram."""
@@ -62,7 +93,7 @@ async def get_courier_orders_bot(
     
     return [
         {
-            "id": str(o.id),
+            "id": o.id,
             "product_title": o.product.title if o.product else "Товар",
             "quantity": o.quantity,
             "status": o.status,
@@ -77,7 +108,7 @@ async def get_courier_orders_bot(
 
 @router.patch("/orders/{id}/status")
 async def update_order_status_bot(
-    id: UUID,
+    id: int,
     payload: BotStatusUpdateRequest,
     db: AsyncSession = Depends(get_db),
     _secret: bool = Depends(require_bot_secret),
@@ -121,8 +152,8 @@ async def update_order_status_bot(
 
     await manager.broadcast({
         "event": "order_updated",
-        "order_id": str(order.id),
+        "order_id": order.id,
         "new_status": payload.new_status
     })
 
-    return {"id": str(order.id), "status": order.status}
+    return {"id": order.id, "status": order.status}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { apiGet, apiPost, apiPatch } from "@/lib/api";
+import { apiGet, apiPost, apiPatch, apiDel } from "@/lib/api";
 import type { User } from "@/types/user";
 
 export type CourierCreate = {
@@ -54,11 +54,17 @@ export function useCouriers(params?: { isActive?: boolean }) {
     return updated;
   }, []);
 
+  const deleteCourier = useCallback(async (id: string) => {
+    await apiDel(`/users/${id}`);
+    setCouriers((prev) => prev.filter((c) => c.id !== id));
+  }, []);
+
   return {
     couriers,
     loading,
     refetch: fetchCouriers,
     createCourier,
     updateCourier,
+    deleteCourier,
   };
 }

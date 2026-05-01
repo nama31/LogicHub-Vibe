@@ -14,19 +14,30 @@ from schemas.order import OrderCreate, OrderUpdate
 from models.order import Order
 from uuid import UUID
 
-async def get_orders(db: AsyncSession) -> List[Order]:
-    """Получить заказы."""
+async def get_orders(
+    db: AsyncSession, 
+    status: str | None = None, 
+    courier_id: UUID | None = None
+) -> List[Order]:
+    """Получить заказы с фильтрацией."""
 
-    result = await db.execute(
+    statement = (
         select(Order)
         .options(selectinload(Order.product), selectinload(Order.courier))
         .order_by(Order.created_at.desc())
     )
+
+    if status:
+        statement = statement.where(Order.status == status)
+    if courier_id:
+        statement = statement.where(Order.courier_id == courier_id)
+
+    result = await db.execute(statement)
     orders = list(result.scalars().all())
     _serialize_orders(orders)
     return orders
 
-async def get_order_by_id(id: UUID, db: AsyncSession) -> Order:
+async def get_order_by_id(id: int, db: AsyncSession) -> Order:
     """Получить заказ по ID."""
     result = await db.execute(
         select(Order)
@@ -39,7 +50,7 @@ async def get_order_by_id(id: UUID, db: AsyncSession) -> Order:
     _serialize_order(order)
     return order
 
-async def get_order_timeline(id: UUID, db: AsyncSession) -> List[OrderStatusLog]:
+async def get_order_timeline(id: int, db: AsyncSession) -> List[OrderStatusLog]:
     """Получить историю статусов заказа."""
     result = await db.execute(
         select(OrderStatusLog)
@@ -95,7 +106,7 @@ async def create_order(data: OrderCreate, db: AsyncSession, changed_by: User | N
     _serialize_order(order)
     return order
 
-async def update_order(id: UUID, data: OrderUpdate, db: AsyncSession, changed_by: User | None = None) -> Order:
+async def update_order(id: int, data: OrderUpdate, db: AsyncSession, changed_by: User | None = None) -> Order:
     """Обновить заказ."""
 
     order = await db.get(Order, id)
@@ -153,7 +164,7 @@ async def update_order(id: UUID, data: OrderUpdate, db: AsyncSession, changed_by
     _serialize_order(order)
     return order
 
-async def delete_order(id: UUID, db: AsyncSession) -> None:
+async def delete_order(id: int, db: AsyncSession) -> None:
     """Удалить заказ."""
 
     order = await db.get(Order, id)
@@ -168,7 +179,7 @@ async def delete_order(id: UUID, db: AsyncSession) -> None:
     await db.commit()
 
 
-async def assign_order(id: UUID, courier_id: UUID, db: AsyncSession, changed_by: User) -> Order:
+async def assign_order(id: int, courier_id: UUID, db: AsyncSession, changed_by: User) -> Order:
     """Назначить курьера и перевести заказ в assigned."""
 
     # Используем select с selectinload для гидратации связей перед передачей в фоновую задачу
@@ -212,7 +223,7 @@ async def assign_order(id: UUID, courier_id: UUID, db: AsyncSession, changed_by:
     return order
 
 
-async def _create_status_log(db: AsyncSession, order_id: UUID, changed_by: UUID, old_status: str | None, new_status: str) -> None:
+async def _create_status_log(db: AsyncSession, order_id: int, changed_by: UUID, old_status: str | None, new_status: str) -> None:
     """Сохранить историю изменения статуса."""
 
     db.add(

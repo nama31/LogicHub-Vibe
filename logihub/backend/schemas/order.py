@@ -75,7 +75,7 @@ class OrderCourierOut(BaseModel):
 class OrderOut(BaseModel):
     """Заказ для ответа."""
 
-    id: UUID = Field(...)
+    id: int = Field(...)
     product_id: UUID = Field(...)
     courier_id: UUID | None = Field(None)
     product: OrderProductOut | None = Field(None)

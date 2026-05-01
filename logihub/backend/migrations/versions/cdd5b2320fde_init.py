@@ -31,10 +31,11 @@ def upgrade() -> None:
     sa.Column('is_active', sa.Boolean(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('tg_id')
+    sa.UniqueConstraint('tg_id'),
+    sa.UniqueConstraint('phone')
     )
     op.create_table('orders',
-    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('id', sa.Integer(), sa.Identity(always=False, start=1, cycle=True), nullable=False),
     sa.Column('product_id', sa.UUID(), nullable=False),
     sa.Column('courier_id', sa.UUID(), nullable=True),
     sa.Column('quantity', sa.Integer(), nullable=False),
@@ -53,7 +54,7 @@ def upgrade() -> None:
     )
     op.create_table('order_status_log',
     sa.Column('id', sa.UUID(), nullable=False),
-    sa.Column('order_id', sa.UUID(), nullable=False),
+    sa.Column('order_id', sa.Integer(), nullable=False),
     sa.Column('changed_by', sa.UUID(), nullable=False),
     sa.Column('old_status', sa.String(), nullable=True),
     sa.Column('new_status', sa.String(), nullable=False),

@@ -77,11 +77,9 @@ export default function DashboardPage() {
           {isAdmin ? (
             <div className="bg-[#2C365A] text-[#EEE8DF] rounded-3xl p-8 shadow-xl relative overflow-hidden group">
               <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-2xl group-hover:bg-white/20 transition-all" />
-              <h2 className="text-xl font-bold mb-2">Статус склада</h2>
+              <h2 className="text-xl font-bold mb-2">Минимальный остаток</h2>
               <p className="text-[#EEE8DF]/70 text-sm mb-6">
-                {summary?.stock_alerts.length 
-                  ? `Внимание! ${summary.stock_alerts.length} товара требуют пополнения.` 
-                  : "Все товары в достаточном количестве."}
+                Список товаров с наименьшим количеством на складе для контроля наличия.
               </p>
               <div className="space-y-3">
                 {summary?.stock_alerts.slice(0, 3).map((item) => (

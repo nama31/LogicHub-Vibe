@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.dependencies import get_db, require_admin, require_admin_or_bot_secret
 from schemas.user import UserOut, UserCreate, UserUpdate
 from uuid import UUID
-from services.user_service import create_user as create_user_service, get_users as get_users_service, update_user as update_user_service
+from services.user_service import create_user as create_user_service, get_users as get_users_service, update_user as update_user_service, delete_user as delete_user_service
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -40,3 +40,13 @@ async def update_user(
     """Обновление пользователя (admin)."""
 
     return await update_user_service(id, user, db)
+
+@router.delete("/{id}", status_code=204)
+async def delete_user(
+    id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _admin: UserOut | None = Depends(require_admin),
+) -> None:
+    """Удаление пользователя (admin)."""
+
+    await delete_user_service(id, db)
