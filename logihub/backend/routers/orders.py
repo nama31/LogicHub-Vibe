@@ -23,6 +23,22 @@ async def get_orders(
 
     return await get_orders_service(db, status=status, courier_id=courier_id)
 
+from fastapi.responses import StreamingResponse
+from services.order_service import export_orders_csv
+
+@router.get("/export")
+async def export_orders(
+    status: str | None = None,
+    courier_id: UUID | None = None,
+    db: AsyncSession = Depends(get_db)
+):
+    """Экспорт списка заказов в CSV (admin)."""
+    csv_data = await export_orders_csv(db, status=status, courier_id=courier_id)
+    
+    response = StreamingResponse(iter([csv_data]), media_type="text/csv")
+    response.headers["Content-Disposition"] = "attachment; filename=orders_export.csv"
+    return response
+
 @router.get("/{id}", response_model=OrderOut)
 async def get_order_by_id(id: int, db: AsyncSession = Depends(get_db)) -> OrderOut:
     """Получение заказа по ID (admin)."""

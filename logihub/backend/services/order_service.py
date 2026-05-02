@@ -104,6 +104,10 @@ async def create_order(data: OrderCreate, db: AsyncSession, changed_by: User | N
     order = result.scalar_one()
 
     _serialize_order(order)
+    
+    from core.websocket import manager
+    await manager.broadcast({"event": "order_created", "id": order.id})
+    
     return order
 
 async def update_order(id: int, data: OrderUpdate, db: AsyncSession, changed_by: User | None = None) -> Order:
@@ -162,6 +166,10 @@ async def update_order(id: int, data: OrderUpdate, db: AsyncSession, changed_by:
     order = result.scalar_one()
 
     _serialize_order(order)
+
+    from core.websocket import manager
+    await manager.broadcast({"event": "order_updated", "id": order.id})
+
     return order
 
 async def delete_order(id: int, db: AsyncSession) -> None:
@@ -177,6 +185,9 @@ async def delete_order(id: int, db: AsyncSession) -> None:
 
     await db.delete(order)
     await db.commit()
+
+    from core.websocket import manager
+    await manager.broadcast({"event": "order_deleted", "id": id})
 
 
 async def assign_order(id: int, courier_id: UUID, db: AsyncSession, changed_by: User) -> Order:
@@ -220,6 +231,10 @@ async def assign_order(id: int, courier_id: UUID, db: AsyncSession, changed_by: 
     order = result.scalar_one()
     
     _serialize_order(order)
+
+    from core.websocket import manager
+    await manager.broadcast({"event": "order_assigned", "id": order.id})
+
     return order
 
 
@@ -254,3 +269,36 @@ def _serialize_orders(orders: List[Order]) -> List[Order]:
     for order in orders:
         _serialize_order(order)
     return orders
+
+import csv
+import io
+
+async def export_orders_csv(db: AsyncSession, status: str | None = None, courier_id: UUID | None = None) -> str:
+    """Экспорт заказов в CSV."""
+    orders = await get_orders(db, status=status, courier_id=courier_id)
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    writer.writerow([
+        "ID", "Дата создания", "Товар", "Количество", "Цена продажи (сом)", 
+        "Доставка (сом)", "Клиент", "Телефон", "Адрес", "Курьер", "Статус", "Примечание"
+    ])
+    
+    for order in orders:
+        writer.writerow([
+            order.id,
+            order.created_at.strftime("%Y-%m-%d %H:%M"),
+            order.product.title if order.product else "",
+            order.quantity,
+            order.sale_price_som,
+            order.courier_fee_som,
+            order.customer_name,
+            order.customer_phone,
+            order.delivery_address,
+            order.courier.name if order.courier else "",
+            order.status,
+            order.note or ""
+        ])
+        
+    return output.getvalue()

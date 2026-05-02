@@ -65,3 +65,21 @@ async def delete_product(id: UUID, db: AsyncSession) -> None:
 
     await db.delete(product)
     await db.commit()
+
+async def restock_product(id: UUID, amount: int, db: AsyncSession) -> Product:
+    """Пополнить запасы товара."""
+    
+    product = await db.get(Product, id)
+    if product is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+        
+    product.stock_quantity += amount
+    await db.commit()
+    await db.refresh(product)
+    
+    product.purchase_price_som = tiyins_to_som(product.purchase_price)
+    
+    from core.websocket import manager
+    await manager.broadcast({"event": "product_restocked", "id": str(product.id), "amount": amount})
+    
+    return product

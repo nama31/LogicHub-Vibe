@@ -28,9 +28,15 @@ class Order(Base):
     delivery_address: Mapped[str] = mapped_column(String, nullable=False)
     status: Mapped[str] = mapped_column(SQLEnum(*ORDER_STATUSES, name="order_status"), nullable=False, server_default="new")
     note: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Route fields (nullable — single orders without a route are still valid)
+    route_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("routes.id"), nullable=True
+    )
+    stop_sequence: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
     product = relationship("Product", back_populates="orders")
     courier = relationship("User", back_populates="courier_orders", foreign_keys=[courier_id])
     status_logs = relationship("OrderStatusLog", back_populates="order")
+    route = relationship("Route", back_populates="stops", foreign_keys=[route_id])

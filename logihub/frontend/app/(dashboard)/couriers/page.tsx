@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import type { User } from "@/types/user";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus } from "lucide-react";
+import { toast } from "sonner";
 
 export default function CouriersPage() {
   const { couriers, loading, createCourier, updateCourier, deleteCourier } = useCouriers();
@@ -26,15 +27,27 @@ export default function CouriersPage() {
 
   const handleDelete = async (id: string) => {
     if (confirm("Вы уверены, что хотите удалить этого курьера?")) {
-      await deleteCourier(id);
+      try {
+        await deleteCourier(id);
+        toast.success("Курьер успешно удален");
+      } catch (err) {
+        toast.error("Ошибка при удалении курьера");
+      }
     }
   };
 
   const handleSubmit = async (data: any) => {
-    if (editingCourier) {
-      await updateCourier(editingCourier.id, data);
-    } else {
-      await createCourier({ ...data, role: "courier" });
+    try {
+      if (editingCourier) {
+        await updateCourier(editingCourier.id, data);
+        toast.success("Курьер успешно обновлен");
+      } else {
+        await createCourier({ ...data, role: "courier" });
+        toast.success("Курьер успешно добавлен");
+      }
+      setModalOpen(false);
+    } catch (err) {
+      toast.error("Ошибка при сохранении курьера");
     }
   };
 

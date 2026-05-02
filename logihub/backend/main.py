@@ -2,7 +2,7 @@
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from routers import auth, products, orders, users, analytics, bot
+from routers import auth, products, orders, users, analytics, bot, routes as routes_router
 from core.websocket import manager
 
 app = FastAPI(title="LogiHub API")
@@ -21,6 +21,8 @@ app.include_router(orders.router)
 app.include_router(users.router)
 app.include_router(analytics.router)
 app.include_router(bot.router)
+app.include_router(routes_router.router)      # /routes (admin)
+app.include_router(routes_router.bot_router)  # /bot/routes (bot internal)
 
 @app.get("/health")
 async def health_check() -> dict:

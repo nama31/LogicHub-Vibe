@@ -65,3 +65,51 @@ class ProfitOut(BaseModel):
     period: ProfitPeriodOut = Field(...)
     total_profit_som: int = Field(...)
     breakdown: list[ProfitBreakdownItemOut] = Field(default_factory=list)
+
+
+# ─────────────────────────────────────────────────────────
+# Phase 15: Deep Analytics Expansion Schemas
+# ─────────────────────────────────────────────────────────
+
+class CourierStatOut(BaseModel):
+    """Статистика одного курьера."""
+    courier_id: str = Field(...)
+    name: str = Field(...)
+    routes_count: int = Field(0)
+    stops_total: int = Field(0)
+    stops_delivered: int = Field(0)
+    stops_failed: int = Field(0)
+    total_fee_som: int = Field(0)
+
+class CourierAnalyticsOut(BaseModel):
+    couriers: list[CourierStatOut] = Field(default_factory=list)
+
+class ProductMarginOut(BaseModel):
+    """Маржинальность товара."""
+    product_id: str = Field(...)
+    title: str = Field(...)
+    total_sold: int = Field(0)
+    revenue_som: int = Field(0)
+    cost_som: int = Field(0)
+    profit_som: int = Field(0)
+    margin_percentage: float = Field(0.0)
+
+class ProductAnalyticsOut(BaseModel):
+    products: list[ProductMarginOut] = Field(default_factory=list)
+
+class TrendItemOut(BaseModel):
+    """Тренды за конкретный период (обычно день)."""
+    date: Date = Field(...)
+    orders_count: int = Field(0)
+    profit_som: int = Field(0)
+
+class TrendAnalyticsOut(BaseModel):
+    trends: list[TrendItemOut] = Field(default_factory=list)
+
+class FailedReasonOut(BaseModel):
+    """Причины неудач."""
+    reason: str = Field(...)
+    count: int = Field(0)
+
+class FailedAnalyticsOut(BaseModel):
+    failures: list[FailedReasonOut] = Field(default_factory=list)

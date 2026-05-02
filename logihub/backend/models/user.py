@@ -28,3 +28,5 @@ class User(Base):
 
     courier_orders = relationship("Order", back_populates="courier", foreign_keys="Order.courier_id")
     status_changes = relationship("OrderStatusLog", back_populates="changed_by_user", foreign_keys="OrderStatusLog.changed_by")
+    routes_as_courier = relationship("Route", back_populates="courier", foreign_keys="Route.courier_id")
+    routes_created = relationship("Route", back_populates="creator", foreign_keys="Route.created_by")

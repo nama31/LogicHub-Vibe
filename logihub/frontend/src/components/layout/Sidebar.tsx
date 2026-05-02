@@ -8,12 +8,14 @@ import {
   ShoppingCart,
   Users,
   BarChart3,
+  Map,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { label: "Дашборд", href: "/", icon: LayoutDashboard },
   { label: "Заказы", href: "/orders", icon: ShoppingCart },
+  { label: "Маршруты", href: "/routes", icon: Map },
   { label: "Инвентарь", href: "/products", icon: Package },
   { label: "Курьеры", href: "/couriers", icon: Users },
   { label: "Аналитика", href: "/analytics", icon: BarChart3 },
@@ -28,9 +30,9 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="flex h-screen w-60 shrink-0 flex-col border-r border-beige bg-cream">
+    <aside className="flex h-screen w-60 shrink-0 flex-col border-r border-[#C4BCB0] bg-[#EEE8DF]">
       <div className="flex h-14 items-center px-5">
-        <span className="text-lg font-bold text-ocean">LogiHub</span>
+        <span className="text-lg font-bold text-[#2C365A]">LogiHub</span>
       </div>
 
       <nav aria-label="Главная навигация" className="flex-1 px-3 py-2">
@@ -45,8 +47,8 @@ export function Sidebar() {
                   className={cn(
                     "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                     active
-                      ? "bg-ocean text-cream"
-                      : "text-ocean hover:bg-beige/40"
+                      ? "bg-[#2C365A] text-[#EEE8DF]"
+                      : "text-[#2C365A] hover:bg-[#C4BCB0]/40"
                   )}
                 >
                   <Icon className="size-4" />

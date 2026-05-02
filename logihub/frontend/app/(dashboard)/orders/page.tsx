@@ -8,12 +8,13 @@ import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { AssignModal } from "@/components/orders/AssignModal";
 import { useState } from "react";
+import { toast } from "sonner";
 import type { Order } from "@/types/order";
 
 export default function OrdersPage() {
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
-  const { orders, loading, refetch } = useOrders({ status: statusFilter || undefined });
+  const { orders, loading, refetch, exportOrders } = useOrders({ status: statusFilter || undefined });
   const router = useRouter();
   const [assignOrder, setAssignOrder] = useState<Order | null>(null);
 
@@ -33,12 +34,28 @@ export default function OrdersPage() {
           <h1 className="text-4xl font-black text-ocean tracking-tight">Заказы</h1>
           <p className="text-muted-foreground mt-1 text-sm sm:text-base">Управление доставками и отслеживание прибыли.</p>
         </div>
-        <Button
-          onClick={() => router.push("/orders/new")}
-          className="bg-ocean text-cream hover:bg-ocean/90 h-12 px-6 rounded-xl font-bold shadow-lg shadow-ocean/20 transition-all active:scale-95"
-        >
-          <Plus className="mr-2 size-5" /> Новый заказ
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={async () => {
+              try {
+                await exportOrders();
+                toast.success("Экспорт успешно завершен");
+              } catch (err) {
+                toast.error("Ошибка при экспорте заказов");
+              }
+            }}
+            variant="outline"
+            className="border-beige text-ocean hover:bg-beige/20 h-12 px-4 rounded-xl font-semibold transition-all active:scale-95"
+          >
+            Экспорт CSV
+          </Button>
+          <Button
+            onClick={() => router.push("/orders/new")}
+            className="bg-ocean text-cream hover:bg-ocean/90 h-12 px-6 rounded-xl font-bold shadow-lg shadow-ocean/20 transition-all active:scale-95"
+          >
+            <Plus className="mr-2 size-5" /> Новый заказ
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4 items-center">

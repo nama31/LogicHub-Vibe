@@ -6,8 +6,22 @@ import redis.asyncio as redis
 
 from core.config import settings
 from core.dependencies import get_db, require_admin
-from schemas.analytics import SummaryOut, ProfitOut
-from services.analytics_service import get_profit as get_profit_service, get_summary as get_summary_service
+from services.analytics_service import (
+    get_profit as get_profit_service,
+    get_summary as get_summary_service,
+    get_courier_analytics as get_courier_analytics_service,
+    get_product_analytics as get_product_analytics_service,
+    get_trend_analytics as get_trend_analytics_service,
+    get_failed_analytics as get_failed_analytics_service,
+)
+from schemas.analytics import (
+    SummaryOut,
+    ProfitOut,
+    CourierAnalyticsOut,
+    ProductAnalyticsOut,
+    TrendAnalyticsOut,
+    FailedAnalyticsOut,
+)
 
 router = APIRouter(prefix="/analytics", tags=["analytics"], dependencies=[Depends(require_admin)])
 
@@ -32,3 +46,23 @@ async def get_profit(db: AsyncSession = Depends(get_db)) -> ProfitOut:
     """Аналитика прибыли (admin)."""
 
     return await get_profit_service(db)
+
+@router.get("/couriers", response_model=CourierAnalyticsOut)
+async def get_courier_analytics(db: AsyncSession = Depends(get_db)) -> CourierAnalyticsOut:
+    """Аналитика по курьерам (admin)."""
+    return await get_courier_analytics_service(db)
+
+@router.get("/products", response_model=ProductAnalyticsOut)
+async def get_product_analytics(db: AsyncSession = Depends(get_db)) -> ProductAnalyticsOut:
+    """Маржинальность товаров (admin)."""
+    return await get_product_analytics_service(db)
+
+@router.get("/trends", response_model=TrendAnalyticsOut)
+async def get_trend_analytics(db: AsyncSession = Depends(get_db)) -> TrendAnalyticsOut:
+    """Тренды за 30 дней (admin)."""
+    return await get_trend_analytics_service(db)
+
+@router.get("/failed", response_model=FailedAnalyticsOut)
+async def get_failed_analytics(db: AsyncSession = Depends(get_db)) -> FailedAnalyticsOut:
+    """Причины неудачных доставок (admin)."""
+    return await get_failed_analytics_service(db)

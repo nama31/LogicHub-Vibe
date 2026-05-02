@@ -5,9 +5,15 @@ from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.dependencies import get_db, require_admin
-from schemas.product import ProductOut, ProductCreate, ProductUpdate
+from schemas.product import ProductOut, ProductCreate, ProductUpdate, ProductRestock
 from uuid import UUID
-from services.product_service import create_product as create_product_service, delete_product as delete_product_service, get_products as get_products_service, update_product as update_product_service
+from services.product_service import (
+    create_product as create_product_service,
+    delete_product as delete_product_service,
+    get_products as get_products_service,
+    update_product as update_product_service,
+    restock_product as restock_product_service,
+)
 
 router = APIRouter(prefix="/products", tags=["products"], dependencies=[Depends(require_admin)])
 
@@ -28,6 +34,11 @@ async def update_product(id: UUID, product: ProductUpdate, db: AsyncSession = De
     """Обновление товара (admin)."""
 
     return await update_product_service(id, product, db)
+
+@router.post("/{id}/restock", response_model=ProductOut)
+async def restock_product(id: UUID, data: ProductRestock, db: AsyncSession = Depends(get_db)) -> ProductOut:
+    """Пополнение запасов товара (admin)."""
+    return await restock_product_service(id, data.amount, db)
 
 @router.delete("/{id}")
 async def delete_product(id: UUID, db: AsyncSession = Depends(get_db)) -> dict:

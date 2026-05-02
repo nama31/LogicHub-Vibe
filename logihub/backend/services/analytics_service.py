@@ -166,3 +166,155 @@ async def _get_stock_alerts(db: AsyncSession):
         StockAlertOut(product_id=str(row.id), title=row.title, stock_quantity=int(row.stock_quantity))
         for row in result.all()
     ]
+
+
+async def get_courier_analytics(db: AsyncSession) -> "CourierAnalyticsOut":
+    from schemas.analytics import CourierAnalyticsOut, CourierStatOut
+    from models.user import User
+    from models.route import Route
+
+    # Для курьеров возьмем информацию по маршрутам и заказам.
+    # Но для сохранения производительности и простоты сгруппируем заказы по курьерам
+    statement = (
+        select(
+            User.id,
+            User.name,
+            func.count(func.distinct(Route.id)).label("routes_count"),
+            func.count(Order.id).label("stops_total"),
+            func.sum(case((Order.status == "delivered", 1), else_=0)).label("stops_delivered"),
+            func.sum(case((Order.status == "failed", 1), else_=0)).label("stops_failed"),
+            func.sum(case((Order.status == "delivered", Order.courier_fee), else_=0)).label("total_fee_som"),
+        )
+        .select_from(User)
+        .outerjoin(Route, Route.courier_id == User.id)
+        .outerjoin(Order, Order.courier_id == User.id)
+        .where(User.role == "courier")
+        .group_by(User.id)
+        .order_by(func.count(func.distinct(Route.id)).desc())
+    )
+
+    result = await db.execute(statement)
+    
+    couriers = []
+    for row in result.all():
+        couriers.append(
+            CourierStatOut(
+                courier_id=str(row.id),
+                name=row.name,
+                routes_count=int(row.routes_count or 0),
+                stops_total=int(row.stops_total or 0),
+                stops_delivered=int(row.stops_delivered or 0),
+                stops_failed=int(row.stops_failed or 0),
+                total_fee_som=tiyins_to_som(int(row.total_fee_som or 0)),
+            )
+        )
+
+    return CourierAnalyticsOut(couriers=couriers)
+
+
+async def get_product_analytics(db: AsyncSession) -> "ProductAnalyticsOut":
+    from schemas.analytics import ProductAnalyticsOut, ProductMarginOut
+
+    statement = (
+        select(
+            Product.id,
+            Product.title,
+            func.sum(case((Order.status == "delivered", Order.quantity), else_=0)).label("total_sold"),
+            func.sum(case((Order.status == "delivered", Order.sale_price * Order.quantity), else_=0)).label("revenue_som"),
+            func.sum(case((Order.status == "delivered", Product.purchase_price * Order.quantity), else_=0)).label("cost_som"),
+            func.sum(case((Order.status == "delivered", (Order.sale_price - Product.purchase_price) * Order.quantity - Order.courier_fee), else_=0)).label("profit_som"),
+        )
+        .select_from(Product)
+        .outerjoin(Order, Order.product_id == Product.id)
+        .group_by(Product.id)
+        .order_by(func.sum(case((Order.status == "delivered", Order.quantity), else_=0)).desc())
+    )
+
+    result = await db.execute(statement)
+
+    products = []
+    for row in result.all():
+        rev = int(row.revenue_som or 0)
+        cost = int(row.cost_som or 0)
+        prof = int(row.profit_som or 0)
+        margin = 0.0
+        if rev > 0:
+            margin = (prof / rev) * 100.0
+
+        products.append(
+            ProductMarginOut(
+                product_id=str(row.id),
+                title=row.title,
+                total_sold=int(row.total_sold or 0),
+                revenue_som=tiyins_to_som(rev),
+                cost_som=tiyins_to_som(cost),
+                profit_som=tiyins_to_som(prof),
+                margin_percentage=round(margin, 2),
+            )
+        )
+
+    return ProductAnalyticsOut(products=products)
+
+
+async def get_trend_analytics(db: AsyncSession) -> "TrendAnalyticsOut":
+    from schemas.analytics import TrendAnalyticsOut, TrendItemOut
+
+    # Последние 30 дней
+    thirty_days_ago = datetime.now(UTC).date() - timedelta(days=30)
+
+    day_label = func.date(Order.created_at).label("date")
+    statement = (
+        select(
+            day_label,
+            func.count(Order.id).label("orders_count"),
+            func.sum(case((Order.status == "delivered", (Order.sale_price - Product.purchase_price) * Order.quantity - Order.courier_fee), else_=0)).label("profit_som"),
+        )
+        .select_from(Order)
+        .join(Product, Product.id == Order.product_id)
+        .where(func.date(Order.created_at) >= thirty_days_ago)
+        .group_by(day_label)
+        .order_by(day_label)
+    )
+
+    result = await db.execute(statement)
+
+    trends = []
+    for row in result.all():
+        trends.append(
+            TrendItemOut(
+                date=row.date,
+                orders_count=int(row.orders_count or 0),
+                profit_som=tiyins_to_som(int(row.profit_som or 0)),
+            )
+        )
+
+    return TrendAnalyticsOut(trends=trends)
+
+
+async def get_failed_analytics(db: AsyncSession) -> "FailedAnalyticsOut":
+    from schemas.analytics import FailedAnalyticsOut, FailedReasonOut
+
+    # Анализируем поле note у заказов со статусом failed
+    statement = (
+        select(
+            func.coalesce(Order.note, "Без причины").label("reason"),
+            func.count(Order.id).label("count"),
+        )
+        .select_from(Order)
+        .where(Order.status == "failed")
+        .group_by(Order.note)
+        .order_by(func.count(Order.id).desc())
+    )
+
+    result = await db.execute(statement)
+
+    failures = []
+    for row in result.all():
+        failures.append(
+            FailedReasonOut(
+                reason=row.reason,
+                count=int(row.count or 0),
+            )
+        )
+
+    return FailedAnalyticsOut(failures=failures)

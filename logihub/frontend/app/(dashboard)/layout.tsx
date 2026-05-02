@@ -5,18 +5,28 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { AuthGuard } from "@/components/layout/AuthGuard";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
+import { useRealTime } from "@/hooks/useRealTime";
+import { Toaster } from "@/components/ui/sonner";
+
+function RealTimeWrapper({ children }: { children: ReactNode }) {
+  useRealTime();
+  return <>{children}</>;
+}
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <AuthProvider>
       <AuthGuard>
-        <div className="flex min-h-screen bg-cream">
-          <Sidebar />
-          <div className="flex flex-1 flex-col">
-            <TopBar />
-            <main className="flex-1 p-6">{children}</main>
+        <RealTimeWrapper>
+          <div className="flex min-h-screen bg-[#EEE8DF]">
+            <Sidebar />
+            <div className="flex flex-1 flex-col">
+              <TopBar />
+              <main className="flex-1 p-6">{children}</main>
+            </div>
           </div>
-        </div>
+          <Toaster position="top-center" richColors />
+        </RealTimeWrapper>
       </AuthGuard>
     </AuthProvider>
   );

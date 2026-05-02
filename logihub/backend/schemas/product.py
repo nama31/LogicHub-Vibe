@@ -31,6 +31,11 @@ class ProductUpdate(BaseModel):
     stock_quantity: int | None = Field(None, ge=0)
     unit: str | None = Field(None, min_length=1)
 
+class ProductRestock(BaseModel):
+    """Пополнение запасов."""
+    
+    amount: int = Field(..., gt=0)
+
 
 class ProductOut(ProductBase):
     """Товар для ответа."""

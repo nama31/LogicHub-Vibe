@@ -43,6 +43,15 @@ export function useOrders(params?: {
 
   useEffect(() => {
     fetchOrders();
+
+    const handleRealTime = (e: any) => {
+      const event = e.detail?.event;
+      if (event && event.startsWith("order_")) {
+        fetchOrders();
+      }
+    };
+    window.addEventListener("realtime-update", handleRealTime);
+    return () => window.removeEventListener("realtime-update", handleRealTime);
   }, [fetchOrders]);
 
   const createOrder = useCallback(async (data: OrderCreate) => {
@@ -68,6 +77,33 @@ export function useOrders(params?: {
     setOrders((prev) => prev.filter((o) => o.id.toString() !== id.toString()));
   }, []);
 
+  const exportOrders = useCallback(async () => {
+    const searchParams = new URLSearchParams();
+    if (params?.status) searchParams.set("status", params.status);
+    if (params?.courierId) searchParams.set("courier_id", params.courierId);
+    
+    const q = searchParams.toString();
+    const url = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/orders/export${q ? `?${q}` : ""}`;
+    
+    // We fetch it directly with token to get the blob
+    const token = localStorage.getItem("token");
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (!response.ok) throw new Error("Failed to export orders");
+    
+    const blob = await response.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = downloadUrl;
+    a.download = "orders_export.csv";
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(downloadUrl);
+    a.remove();
+  }, [params?.status, params?.courierId]);
+
   return {
     orders,
     total,
@@ -76,7 +112,8 @@ export function useOrders(params?: {
     createOrder,
     updateOrder,
     assignCourier,
-    deleteOrder
+    deleteOrder,
+    exportOrders
   };
 }
 
@@ -105,7 +142,17 @@ export function useOrder(id: number | string) {
 
   useEffect(() => {
     fetchOrder();
-  }, [fetchOrder]);
+
+    const handleRealTime = (e: any) => {
+      const event = e.detail?.event;
+      const eventId = e.detail?.id;
+      if (event && event.startsWith("order_") && eventId?.toString() === id?.toString()) {
+        fetchOrder();
+      }
+    };
+    window.addEventListener("realtime-update", handleRealTime);
+    return () => window.removeEventListener("realtime-update", handleRealTime);
+  }, [fetchOrder, id]);
 
   return {
     order,

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { apiGet } from "@/lib/api";
-import type { Summary, ProfitOut } from "@/types/analytics";
+import type { Summary, ProfitOut, CourierStat, ProductMargin, TrendItem, FailedReason } from "@/types/analytics";
 
 import { useAuth } from "@/hooks/useAuth";
 
@@ -10,6 +10,13 @@ export function useAnalytics(params?: { from?: string; to?: string }) {
   const { user } = useAuth();
   const [summary, setSummary] = useState<Summary | null>(null);
   const [profit, setProfit] = useState<ProfitOut | null>(null);
+  
+  // Phase 15 state
+  const [couriers, setCouriers] = useState<CourierStat[]>([]);
+  const [products, setProducts] = useState<ProductMargin[]>([]);
+  const [trends, setTrends] = useState<TrendItem[]>([]);
+  const [failures, setFailures] = useState<FailedReason[]>([]);
+  
   const [loading, setLoading] = useState(true);
 
   const isAdmin = user?.role === "admin";
@@ -44,6 +51,26 @@ export function useAnalytics(params?: { from?: string; to?: string }) {
       }
     }
   }, [params?.from, params?.to, isAdmin]);
+  
+  const fetchDeepAnalytics = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      const [cData, pData, tData, fData] = await Promise.all([
+        apiGet<{ couriers: CourierStat[] }>("/analytics/couriers"),
+        apiGet<{ products: ProductMargin[] }>("/analytics/products"),
+        apiGet<{ trends: TrendItem[] }>("/analytics/trends"),
+        apiGet<{ failures: FailedReason[] }>("/analytics/failed"),
+      ]);
+      setCouriers(cData.couriers);
+      setProducts(pData.products);
+      setTrends(tData.trends);
+      setFailures(fData.failures);
+    } catch (err: any) {
+      if (err?.detail !== "Admin privileges required") {
+        console.error("Failed to fetch deep analytics:", err);
+      }
+    }
+  }, [isAdmin]);
 
   useEffect(() => {
     if (!isAdmin) {
@@ -52,17 +79,22 @@ export function useAnalytics(params?: { from?: string; to?: string }) {
     }
     const loadAll = async () => {
       setLoading(true);
-      await Promise.all([fetchSummary(), fetchProfit()]);
+      await Promise.all([fetchSummary(), fetchProfit(), fetchDeepAnalytics()]);
       setLoading(false);
     };
     loadAll();
-  }, [fetchSummary, fetchProfit, isAdmin]);
+  }, [fetchSummary, fetchProfit, fetchDeepAnalytics, isAdmin]);
 
   return {
     summary,
     profit,
+    couriers,
+    products,
+    trends,
+    failures,
     loading,
     refetchSummary: fetchSummary,
     refetchProfit: fetchProfit,
+    refetchDeep: fetchDeepAnalytics,
   };
 }

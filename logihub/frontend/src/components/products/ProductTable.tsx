@@ -10,15 +10,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, PackagePlus } from "lucide-react";
 
 interface ProductTableProps {
   products: Product[];
   onEdit: (product: Product) => void;
   onDelete: (id: string) => void;
+  onRestock: (product: Product) => void;
 }
 
-export function ProductTable({ products, onEdit, onDelete }: ProductTableProps) {
+export function ProductTable({ products, onEdit, onDelete, onRestock }: ProductTableProps) {
   if (products.length === 0) {
     return (
       <div className="rounded-xl border border-beige bg-card p-8 text-center">
@@ -56,8 +57,18 @@ export function ProductTable({ products, onEdit, onDelete }: ProductTableProps) 
                   <Button
                     variant="ghost"
                     size="sm"
+                    onClick={() => onRestock(product)}
+                    className="text-emerald-600 hover:bg-emerald-50"
+                    title="Пополнить запасы"
+                  >
+                    <PackagePlus className="size-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => onEdit(product)}
                     className="text-ocean hover:bg-beige/40"
+                    title="Редактировать"
                   >
                     <Pencil className="size-4" />
                   </Button>
@@ -66,6 +77,7 @@ export function ProductTable({ products, onEdit, onDelete }: ProductTableProps) 
                     size="sm"
                     onClick={() => onDelete(product.id)}
                     className="text-destructive hover:bg-destructive/10"
+                    title="Удалить"
                   >
                     <Trash2 className="size-4" />
                   </Button>

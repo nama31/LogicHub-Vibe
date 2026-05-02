@@ -67,6 +67,17 @@ export function useProducts() {
     [],
   );
 
+  const restockProduct = useCallback(
+    async (id: string, amount: number) => {
+      const restocked = await apiPost<Product>(`/products/${id}/restock`, { amount });
+      setProducts((prev) =>
+        prev.map((p) => (p.id === id ? restocked : p)),
+      );
+      return restocked;
+    },
+    [],
+  );
+
   return {
     products,
     loading,
@@ -74,5 +85,6 @@ export function useProducts() {
     createProduct,
     updateProduct,
     deleteProduct,
+    restockProduct,
   };
 }

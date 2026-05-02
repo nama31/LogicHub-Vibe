@@ -136,3 +136,56 @@ class BackendClient:
 
 		return payload if isinstance(payload, list) else []
 
+	async def fetch_active_route(self, tg_id: int) -> dict | None:
+		"""Получить активный маршрут курьера (статус 'active')."""
+
+		try:
+			payload = await self.request(
+				"GET",
+				"/routes",
+				headers={"X-Bot-Secret": settings.bot_secret},
+				query={"route_status": "active"},
+			)
+			routes = payload.get("routes", []) if isinstance(payload, dict) else []
+			for route in routes:
+				courier = route.get("courier") or {}
+				if courier.get("tg_id") == tg_id:
+					route_id = route.get("id")
+					if route_id:
+						return await self.fetch_route_by_id(route_id)
+			return None
+		except BackendClientError:
+			return None
+
+	async def fetch_route_by_id(self, route_id: str) -> dict | None:
+		"""Получить полный маршрут по ID."""
+
+		try:
+			return await self.request(
+				"GET",
+				f"/routes/{route_id}",
+				headers={"X-Bot-Secret": settings.bot_secret},
+			)
+		except BackendClientError:
+			return None
+
+	async def complete_route_stop(
+		self,
+		route_id: str,
+		stop_id: int,
+		tg_id: int,
+		result: str,
+		failure_reason: str | None = None,
+	) -> dict:
+		"""Завершить остановку маршрута (bot endpoint)."""
+
+		body: dict = {"tg_id": tg_id, "result": result}
+		if failure_reason:
+			body["failure_reason"] = failure_reason
+
+		return await self.request(
+			"PATCH",
+			f"/bot/routes/{route_id}/stop/{stop_id}/complete",
+			headers={"X-Bot-Secret": settings.bot_secret},
+			json_body=body,
+		)

@@ -12,6 +12,7 @@ from bot.handlers.help import router as help_router
 from bot.handlers.my_orders import router as my_orders_router
 from bot.handlers.new_orders import router as new_orders_router
 from bot.handlers.registration import router as registration_router
+from bot.handlers.routes import router as routes_router
 from bot.handlers.start import router as start_router
 from bot.handlers.status_update import router as status_router
 from bot.middlewares.courier_auth import CourierAuthMiddleware
@@ -36,6 +37,7 @@ async def main() -> None:
 
 	dp["order_service"] = order_service
 	dp["auth_service"] = auth_service
+	dp["backend_client"] = backend_client  # Available to route handlers
 
 	middleware = CourierAuthMiddleware(auth_service)
 	dp.message.middleware(middleware)
@@ -44,6 +46,7 @@ async def main() -> None:
 	dp.include_router(start_router)
 	dp.include_router(registration_router)
 	dp.include_router(help_router)
+	dp.include_router(routes_router)     # NEW: route-based UX (registered before old handlers)
 	dp.include_router(my_orders_router)
 	dp.include_router(new_orders_router)
 	dp.include_router(status_router)
@@ -63,6 +66,7 @@ async def main() -> None:
 			await asyncio.sleep(3)
 
 	try:
+		await bot.delete_webhook(drop_pending_updates=True)
 		await dp.start_polling(bot)
 	finally:
 		await backend_client.close()

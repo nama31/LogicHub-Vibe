@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from urllib.parse import urlencode
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from aiogram import Bot
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from core.config import settings
 from models.order import Order
 
@@ -16,8 +18,57 @@ from models.order import Order
 logger = logging.getLogger(__name__)
 
 
-import json
-import re
+def _escape_md2(text: str) -> str:
+    """Экранирование спецсимволов для MarkdownV2."""
+    special = r"\_*[]()~`>#+-=|{}.!"
+    return re.sub(r"([" + re.escape(special) + r"])", r"\\\1", str(text))
+
+
+async def notify_route_started(route_out) -> None:  # route_out: RouteOut
+    """Отправить курьеру уведомление о новом маршруте (MarkdownV2)."""
+    if not settings.telegram_bot_token:
+        logger.warning("Telegram bot token not configured; skipping route notification")
+        return
+
+    courier = route_out.courier
+    if courier is None or courier.tg_id is None:
+        logger.warning("Route %s courier has no tg_id; skipping notification", route_out.id)
+        return
+
+    label = _escape_md2(route_out.label or f"Маршрут #{str(route_out.id)[:8]}")
+    stops_total = route_out.stops_total
+
+    text = (
+        f"📦 *Новый маршрут назначен*\n\n"
+        f"{label} · {_escape_md2(stops_total)} остановок\n"
+        f"Нажми кнопку ниже, чтобы начать\\."
+    )
+
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(
+                text="🚀 Начать маршрут",
+                callback_data=f"route_start:{route_out.id}",
+            )]
+        ]
+    )
+
+    bot = Bot(token=settings.telegram_bot_token)
+    try:
+        await bot.send_message(
+            chat_id=courier.tg_id,
+            text=text,
+            reply_markup=keyboard,
+            parse_mode="MarkdownV2",
+        )
+        logger.info("Route assignment notification sent to courier tg_id=%s", courier.tg_id)
+    except Exception as exc:
+        logger.error("Failed to send route notification: %s", exc, exc_info=True)
+    finally:
+        await bot.session.close()
+
+
+
 
 def _sanitize_markdown(text: str | None) -> str:
     """Экранирование спецсимволов для Telegram Markdown."""

@@ -4,15 +4,20 @@ import { useState } from "react";
 import { useProducts } from "@/hooks/useProducts";
 import { ProductTable } from "@/components/products/ProductTable";
 import { ProductModal } from "@/components/products/ProductModal";
+import { ProductRestockModal } from "@/components/products/ProductRestockModal";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
+import { toast } from "sonner";
 import type { Product, ProductCreate, ProductUpdate } from "@/types/product";
 
 export default function ProductsPage() {
-  const { products, loading, createProduct, updateProduct, deleteProduct } = useProducts();
+  const { products, loading, createProduct, updateProduct, deleteProduct, restockProduct } = useProducts();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | undefined>();
+  
+  const [restockModalOpen, setRestockModalOpen] = useState(false);
+  const [restockingProduct, setRestockingProduct] = useState<Product | undefined>();
 
   function handleAdd() {
     setEditingProduct(undefined);
@@ -24,22 +29,50 @@ export default function ProductsPage() {
     setModalOpen(true);
   }
 
+  function handleRestock(product: Product) {
+    setRestockingProduct(product);
+    setRestockModalOpen(true);
+  }
+
   async function handleDelete(id: string) {
-    await deleteProduct(id);
+    try {
+      await deleteProduct(id);
+      toast.success("Товар успешно удален");
+    } catch (err) {
+      toast.error("Ошибка при удалении товара");
+    }
+  }
+
+  async function handleRestockSubmit(id: string, amount: number) {
+    if (restockProduct) {
+      try {
+        await restockProduct(id, amount);
+        toast.success("Запасы успешно пополнены");
+      } catch (err) {
+        toast.error("Ошибка при пополнении запасов");
+      }
+    }
   }
 
   async function handleSubmit(data: ProductCreate) {
-    if (editingProduct) {
-      const updates: ProductUpdate = {};
-      if (data.title !== editingProduct.title) updates.title = data.title;
-      if (data.purchase_price_som !== editingProduct.purchase_price_som)
-        updates.purchase_price_som = data.purchase_price_som;
-      if (data.stock_quantity !== editingProduct.stock_quantity)
-        updates.stock_quantity = data.stock_quantity;
-      if (data.unit !== editingProduct.unit) updates.unit = data.unit;
-      await updateProduct(editingProduct.id, updates);
-    } else {
-      await createProduct(data);
+    try {
+      if (editingProduct) {
+        const updates: ProductUpdate = {};
+        if (data.title !== editingProduct.title) updates.title = data.title;
+        if (data.purchase_price_som !== editingProduct.purchase_price_som)
+          updates.purchase_price_som = data.purchase_price_som;
+        if (data.stock_quantity !== editingProduct.stock_quantity)
+          updates.stock_quantity = data.stock_quantity;
+        if (data.unit !== editingProduct.unit) updates.unit = data.unit;
+        await updateProduct(editingProduct.id, updates);
+        toast.success("Товар успешно обновлен");
+      } else {
+        await createProduct(data);
+        toast.success("Товар успешно добавлен");
+      }
+      setModalOpen(false);
+    } catch (err) {
+      toast.error("Ошибка при сохранении товара");
     }
   }
 
@@ -68,6 +101,7 @@ export default function ProductsPage() {
         products={products}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        onRestock={handleRestock}
       />
 
       <ProductModal
@@ -75,6 +109,13 @@ export default function ProductsPage() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onSubmit={handleSubmit}
+      />
+      
+      <ProductRestockModal
+        product={restockingProduct}
+        open={restockModalOpen}
+        onClose={() => setRestockModalOpen(false)}
+        onSubmit={handleRestockSubmit}
       />
     </div>
   );
