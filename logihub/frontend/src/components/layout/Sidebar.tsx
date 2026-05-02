@@ -30,9 +30,9 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="flex h-screen w-60 shrink-0 flex-col border-r border-[#C4BCB0] bg-[#EEE8DF]">
+    <aside className="flex h-screen w-60 shrink-0 flex-col border-r border-border bg-background">
       <div className="flex h-14 items-center px-5">
-        <span className="text-lg font-bold text-[#2C365A]">LogiHub</span>
+        <span className="text-lg font-bold text-foreground">LogiHub</span>
       </div>
 
       <nav aria-label="Главная навигация" className="flex-1 px-3 py-2">
@@ -47,8 +47,8 @@ export function Sidebar() {
                   className={cn(
                     "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                     active
-                      ? "bg-[#2C365A] text-[#EEE8DF]"
-                      : "text-[#2C365A] hover:bg-[#C4BCB0]/40"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-foreground hover:bg-secondary/40"
                   )}
                 >
                   <Icon className="size-4" />

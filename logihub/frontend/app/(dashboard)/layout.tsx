@@ -18,7 +18,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     <AuthProvider>
       <AuthGuard>
         <RealTimeWrapper>
-          <div className="flex min-h-screen bg-[#EEE8DF]">
+          <div className="flex min-h-screen bg-background text-foreground">
             <Sidebar />
             <div className="flex flex-1 flex-col">
               <TopBar />

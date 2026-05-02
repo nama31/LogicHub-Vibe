@@ -142,18 +142,11 @@ class BackendClient:
 		try:
 			payload = await self.request(
 				"GET",
-				"/routes",
+				"/bot/routes/active",
 				headers={"X-Bot-Secret": settings.bot_secret},
-				query={"route_status": "active"},
+				query={"tg_id": tg_id},
 			)
-			routes = payload.get("routes", []) if isinstance(payload, dict) else []
-			for route in routes:
-				courier = route.get("courier") or {}
-				if courier.get("tg_id") == tg_id:
-					route_id = route.get("id")
-					if route_id:
-						return await self.fetch_route_by_id(route_id)
-			return None
+			return payload if isinstance(payload, dict) else None
 		except BackendClientError:
 			return None
 
@@ -163,7 +156,7 @@ class BackendClient:
 		try:
 			return await self.request(
 				"GET",
-				f"/routes/{route_id}",
+				f"/bot/routes/by-id/{route_id}",
 				headers={"X-Bot-Secret": settings.bot_secret},
 			)
 		except BackendClientError:

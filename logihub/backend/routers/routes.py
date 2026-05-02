@@ -118,3 +118,30 @@ async def complete_stop(
         courier_tg_id=data.tg_id,
         db=db,
     )
+
+
+@bot_router.get("/active", response_model=RouteOut | None)
+async def get_active_route_for_bot(
+    tg_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: bool = Depends(require_bot_secret),
+) -> RouteOut | None:
+    """Получить активный маршрут курьера для Telegram-бота."""
+
+    routes = await route_service.list_routes(db, route_status="active")
+    for route_item in routes:
+        courier = route_item.courier
+        if courier is not None and courier.tg_id == tg_id:
+            return await route_service.get_route(route_item.id, db)
+    return None
+
+
+@bot_router.get("/by-id/{route_id}", response_model=RouteOut)
+async def get_route_for_bot(
+    route_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: bool = Depends(require_bot_secret),
+) -> RouteOut:
+    """Получить маршрут по ID для Telegram-бота."""
+
+    return await route_service.get_route(route_id, db)
