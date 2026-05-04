@@ -3,6 +3,7 @@ export interface Product {
   title: string;
   /** Stored in tiyins on the server; returned as computed field */
   purchase_price_som: number;
+  selling_price_som: number;
   stock_quantity: number;
   unit: string;
   created_at: string;
@@ -11,6 +12,7 @@ export interface Product {
 export interface ProductCreate {
   title: string;
   purchase_price_som: number;
+  selling_price_som: number;
   stock_quantity: number;
   unit: string;
 }

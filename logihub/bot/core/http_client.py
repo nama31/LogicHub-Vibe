@@ -100,20 +100,24 @@ class BackendClient:
 				courier_ids.add(int(tg_id))
 		return courier_ids
 
-	async def update_order_status(self, order_id: str, tg_id: int, new_status: str) -> dict[str, Any]:
+	async def update_order_status(self, order_id: str, tg_id: int, new_status: str, reason: str | None = None) -> dict[str, Any]:
 		"""Отправить статус заказа в backend."""
+
+		json_body: dict[str, Any] = {"tg_id": tg_id, "new_status": new_status}
+		if reason:
+			json_body["reason"] = reason
 
 		payload = await self.request(
 			"PATCH",
 			f"/bot/orders/{order_id}/status",
 			headers={"X-Bot-Secret": settings.bot_secret},
-			json_body={"tg_id": tg_id, "new_status": new_status},
+			json_body=json_body,
 		)
 
 		return payload if isinstance(payload, dict) else {"result": payload}
 
-	async def register_courier(self, phone: str, tg_id: int) -> dict[str, Any]:
-		"""Зарегистрировать курьера по номеру телефона."""
+	async def register_user(self, phone: str, tg_id: int) -> dict[str, Any]:
+		"""Зарегистрировать пользователя по номеру телефона."""
 
 		payload = await self.request(
 			"POST",
@@ -182,3 +186,15 @@ class BackendClient:
 			headers={"X-Bot-Secret": settings.bot_secret},
 			json_body=body,
 		)
+
+	async def fetch_user_by_tg_id(self, tg_id: int) -> dict | None:
+		"""Получить данные пользователя по tg_id."""
+
+		try:
+			return await self.request(
+				"GET",
+				f"/bot/users/{tg_id}",
+				headers={"X-Bot-Secret": settings.bot_secret},
+			)
+		except BackendClientError:
+			return None

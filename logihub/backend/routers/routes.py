@@ -16,7 +16,7 @@ from schemas.route import (
     StopCompleteRequest,
 )
 from services import route_service
-from services.notification_service import notify_route_started
+from services.notification_service import notify_route_started, notify_client_dispatch
 
 # ─── Admin-facing routes ───────────────────────────────────────────────────────
 router = APIRouter(prefix="/routes", tags=["routes"])
@@ -90,8 +90,21 @@ async def start_route(
 ) -> RouteOut:
     """Активировать маршрут (draft → active). Отправляет уведомление курьеру в Telegram."""
     route_out = await route_service.start_route(route_id, db)
-    # Fire-and-forget Telegram notification to the courier
+    
+    # 1. Уведомление курьеру
     background_tasks.add_task(notify_route_started, route_out)
+    
+    # 2. Уведомление первому клиенту (заказ которого перешел в in_transit)
+    first_in_transit = next((s for s in route_out.stops if s.status == "in_transit"), None)
+    if first_in_transit:
+        background_tasks.add_task(
+            notify_client_dispatch, 
+            first_in_transit.id, 
+            route_out.courier.name, 
+            route_out.courier.phone, 
+            db
+        )
+        
     return route_out
 
 
@@ -102,15 +115,16 @@ async def complete_stop(
     route_id: UUID,
     stop_id: int,
     data: StopCompleteRequest,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     _: bool = Depends(require_bot_secret),
 ) -> RouteOut:
     """Завершить текущую остановку (bot internal).
-
+    
     Автоматически переводит следующую остановку в in_transit.
     Если это последняя остановка — маршрут завершается.
     """
-    return await route_service.complete_stop(
+    route_out = await route_service.complete_stop(
         route_id=route_id,
         stop_id=stop_id,
         result_status=data.result,
@@ -118,6 +132,19 @@ async def complete_stop(
         courier_tg_id=data.tg_id,
         db=db,
     )
+
+    # Уведомление следующему клиенту (чей заказ перешел в in_transit)
+    next_in_transit = next((s for s in route_out.stops if s.status == "in_transit"), None)
+    if next_in_transit:
+        background_tasks.add_task(
+            notify_client_dispatch, 
+            next_in_transit.id, 
+            route_out.courier.name, 
+            route_out.courier.phone, 
+            db
+        )
+
+    return route_out
 
 
 @bot_router.get("/active", response_model=RouteOut | None)

@@ -13,13 +13,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Pencil, Trash2 } from "lucide-react";
 
-interface CourierTableProps {
-  couriers?: User[];
+interface UserTableProps {
+  users?: User[];
   onEdit?: (user: User) => void;
   onDelete?: (id: string) => void;
 }
 
-export function CourierTable({ couriers = [], onEdit, onDelete }: CourierTableProps) {
+export function UserTable({ users = [], onEdit, onDelete }: UserTableProps) {
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
       <Table>
@@ -33,20 +33,20 @@ export function CourierTable({ couriers = [], onEdit, onDelete }: CourierTablePr
           </TableRow>
         </TableHeader>
         <TableBody>
-          {couriers.length === 0 ? (
+          {users.length === 0 ? (
             <TableRow>
               <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                Нет данных о курьерах
+                Нет данных
               </TableCell>
             </TableRow>
           ) : (
-            couriers.map((c) => (
-              <TableRow key={c.id} className="hover:bg-muted/50 transition-colors">
-                <TableCell className="font-medium text-ocean">{c.name}</TableCell>
-                <TableCell className="text-ocean">{c.tg_id ?? "—"}</TableCell>
-                <TableCell className="text-ocean">{c.phone ?? "—"}</TableCell>
+            users.map((u) => (
+              <TableRow key={u.id} className="hover:bg-muted/50 transition-colors">
+                <TableCell className="font-medium text-ocean">{u.name}</TableCell>
+                <TableCell className="text-ocean">{u.tg_id ?? "—"}</TableCell>
+                <TableCell className="text-ocean">{u.phone ?? "—"}</TableCell>
                 <TableCell>
-                  {c.is_active ? (
+                  {u.is_active ? (
                     <Badge className="bg-ocean text-cream hover:bg-ocean/90 border-none font-medium">
                       Активен
                     </Badge>
@@ -62,7 +62,7 @@ export function CourierTable({ couriers = [], onEdit, onDelete }: CourierTablePr
                       variant="ghost"
                       size="sm"
                       className="text-ocean hover:bg-beige/50"
-                      onClick={() => onEdit?.(c)}
+                      onClick={() => onEdit?.(u)}
                     >
                       <Pencil className="size-4" />
                     </Button>
@@ -70,7 +70,7 @@ export function CourierTable({ couriers = [], onEdit, onDelete }: CourierTablePr
                       variant="ghost"
                       size="sm"
                       className="text-destructive hover:bg-destructive/10"
-                      onClick={() => onDelete?.(c.id)}
+                      onClick={() => onDelete?.(u.id)}
                     >
                       <Trash2 className="size-4" />
                     </Button>

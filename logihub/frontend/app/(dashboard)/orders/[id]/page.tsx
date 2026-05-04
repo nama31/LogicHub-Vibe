@@ -8,13 +8,30 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, MapPin, Phone, User, Package, Calendar, Info, Clock } from "lucide-react";
 import { useRouter, useParams } from "next/navigation";
 import { AssignModal } from "@/components/orders/AssignModal";
+import { EditOrderModal } from "@/components/orders/EditOrderModal";
 import { useState } from "react";
+import { toast } from "sonner";
+import { useOrders } from "@/hooks/useOrders";
 
 export default function OrderDetailPage() {
   const { id } = useParams() as { id: string };
   const { order, timeline, loading, refetch } = useOrder(id);
+  const { updateOrder } = useOrders();
   const router = useRouter();
   const [isAssignOpen, setIsAssignOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isApproveOpen, setIsApproveOpen] = useState(false);
+
+  const handleReject = async () => {
+    if (!confirm("Вы уверены, что хотите отклонить этот заказ?")) return;
+    try {
+      await updateOrder(id, { status: "failed" });
+      toast.success("Заказ отклонен");
+      refetch();
+    } catch (err) {
+      toast.error("Ошибка при отклонении заказа");
+    }
+  };
 
   if (loading) {
     return (
@@ -58,15 +75,41 @@ export default function OrderDetailPage() {
             </p>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-3">
+          {order.status === "pending" && (
+            <>
+              <Button
+                onClick={() => setIsApproveOpen(true)}
+                className="bg-ocean text-cream hover:bg-ocean/90 rounded-xl px-6 h-11 font-semibold shadow-lg shadow-ocean/10"
+              >
+                Проверить и одобрить
+              </Button>
+              <Button
+                onClick={handleReject}
+                variant="outline"
+                className="border-destructive text-destructive hover:bg-destructive/10 rounded-xl px-6 h-11 font-semibold"
+              >
+                Отклонить
+              </Button>
+            </>
+          )}
           {(order.status === "new" || order.status === "assigned") && (
-            <Button 
-              onClick={() => setIsAssignOpen(true)}
-              className="bg-ocean text-cream hover:bg-ocean/90 rounded-xl px-6 h-11 font-semibold transition-all active:scale-95 shadow-lg shadow-ocean/10"
-            >
-              {order.courier ? "Переназначить" : "Назначить курьера"}
-            </Button>
+            <>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsEditOpen(true)}
+                  className="border-beige text-ocean hover:bg-beige/20 rounded-xl px-6 h-11 font-semibold"
+                >
+                  Редактировать
+                </Button>
+                <Button
+                  onClick={() => setIsAssignOpen(true)}
+                  className="bg-ocean text-cream hover:bg-ocean/90 rounded-xl px-6 h-11 font-semibold transition-all active:scale-95 shadow-lg shadow-ocean/10"
+                >
+                  {order.courier ? "Переназначить" : "Назначить курьера"}
+                </Button>
+            </>
           )}
         </div>
       </div>
@@ -80,11 +123,15 @@ export default function OrderDetailPage() {
               <h3 className="font-bold text-ocean flex items-center gap-2">
                 <Package className="size-5" /> Детали заказа
               </h3>
-              <Badge className="bg-ocean text-cream border-none px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+              <Badge className={
+                order.status === "pending" 
+                  ? "bg-yellow-100 text-yellow-800 border-none px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wider"
+                  : "bg-ocean text-cream border-none px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wider"
+              }>
                 {STATUS_LABELS_RU[order.status] || order.status}
               </Badge>
             </div>
-            
+
             <div className="p-8 grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-10">
               <div className="space-y-8">
                 <div className="flex items-start gap-4">
@@ -130,7 +177,7 @@ export default function OrderDetailPage() {
                     <span className="text-muted-foreground font-medium">Сумма продажи:</span>
                     <span className="font-bold text-ocean text-base">{order.sale_price_som} сом</span>
                   </div>
-                   <div className="flex justify-between items-center text-sm">
+                  <div className="flex justify-between items-center text-sm">
                     <span className="text-muted-foreground font-medium">Оплата курьеру:</span>
                     <span className="text-ocean/70 font-medium">{order.courier_fee_som} сом</span>
                   </div>
@@ -141,7 +188,13 @@ export default function OrderDetailPage() {
                 </div>
               </div>
 
-              {order.note && (
+              {order.status === "failed" && order.note && (
+                <div className="col-span-full bg-cream border-2 border-beige p-5 rounded-2xl shadow-sm">
+                   <p className="text-[10px] text-ocean uppercase font-black tracking-widest mb-2">Problem Report / Причина недоставки</p>
+                   <p className="text-ocean font-medium leading-relaxed">{order.note}</p>
+                </div>
+              )}
+              {order.status !== "failed" && order.note && (
                 <div className="col-span-full bg-muted/30 p-5 rounded-2xl border-l-4 border-ocean/40 shadow-inner">
                    <p className="text-[9px] text-muted-foreground uppercase font-black tracking-widest mb-2">Примечание</p>
                    <p className="text-ocean/80 italic leading-relaxed">"{order.note}"</p>
@@ -150,29 +203,29 @@ export default function OrderDetailPage() {
             </div>
           </div>
 
-           {/* Courier Card */}
-           <div className="bg-card border border-border rounded-[2rem] p-6 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-6">
-              <div className="flex items-center gap-5">
-                <div className="bg-ocean text-cream p-4 rounded-2xl shadow-lg shadow-ocean/20">
-                  <User className="size-7" />
-                </div>
-                <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-black mb-0.5">Ответственный курьер</p>
-                  <p className="text-2xl font-black text-ocean tracking-tight">
-                    {order.courier?.name || "Не назначен"}
-                  </p>
-                </div>
+          {/* Courier Card */}
+          <div className="bg-card border border-border rounded-[2rem] p-6 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-5">
+              <div className="bg-ocean text-cream p-4 rounded-2xl shadow-lg shadow-ocean/20">
+                <User className="size-7" />
               </div>
-              {!order.courier ? (
-                <Button onClick={() => setIsAssignOpen(true)} className="rounded-xl bg-ocean text-cream hover:bg-ocean/90 h-12 px-6 font-bold w-full sm:w-auto">
-                  Назначить сейчас
-                </Button>
-              ) : (
-                 <Button variant="outline" onClick={() => setIsAssignOpen(true)} className="rounded-xl border-beige text-ocean hover:bg-beige/10 h-12 px-6 font-semibold w-full sm:w-auto">
-                   Изменить курьера
-                 </Button>
-              )}
-           </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-black mb-0.5">Ответственный курьер</p>
+                <p className="text-2xl font-black text-ocean tracking-tight">
+                  {order.courier?.name || "Не назначен"}
+                </p>
+              </div>
+            </div>
+            {!order.courier ? (
+              <Button onClick={() => setIsAssignOpen(true)} className="rounded-xl bg-ocean text-cream hover:bg-ocean/90 h-12 px-6 font-bold w-full sm:w-auto">
+                Назначить сейчас
+              </Button>
+            ) : (
+              <Button variant="outline" onClick={() => setIsAssignOpen(true)} className="rounded-xl border-beige text-ocean hover:bg-beige/10 h-12 px-6 font-semibold w-full sm:w-auto">
+                Изменить курьера
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Sidebar / Timeline */}
@@ -186,11 +239,26 @@ export default function OrderDetailPage() {
         </div>
       </div>
 
-      <AssignModal 
-        orderId={order.id} 
-        isOpen={isAssignOpen} 
+      <AssignModal
+        orderId={order.id}
+        isOpen={isAssignOpen}
         onClose={() => setIsAssignOpen(false)}
         onAssigned={refetch}
+      />
+
+      <EditOrderModal
+        order={order}
+        isOpen={isEditOpen}
+        onClose={() => setIsEditOpen(false)}
+        onUpdated={refetch}
+      />
+
+      <EditOrderModal
+        order={order}
+        isOpen={isApproveOpen}
+        approveAfterUpdate
+        onClose={() => setIsApproveOpen(false)}
+        onUpdated={refetch}
       />
     </div>
   );

@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useProducts } from "@/hooks/useProducts";
-import { useCouriers } from "@/hooks/useCouriers";
+import { useUsers } from "@/hooks/useUsers";
 import type { OrderCreate } from "@/types/order";
 
 const orderSchema = z.object({
@@ -33,13 +33,14 @@ type OrderFormValues = z.infer<typeof orderSchema>;
 
 interface OrderFormProps {
   orderId?: string;
+  initialData?: Partial<OrderFormValues>;
   onSuccess?: () => void;
-  onSubmit: (data: OrderCreate) => Promise<any>;
+  onSubmit: (data: any) => Promise<any>;
 }
 
-export function OrderForm({ orderId, onSuccess, onSubmit }: OrderFormProps) {
+export function OrderForm({ orderId, initialData, onSuccess, onSubmit }: OrderFormProps) {
   const { products } = useProducts();
-  const { couriers } = useCouriers();
+  const { users: couriers } = useUsers({ role: "courier" });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
@@ -47,23 +48,51 @@ export function OrderForm({ orderId, onSuccess, onSubmit }: OrderFormProps) {
     handleSubmit,
     watch,
     setValue,
+    reset,
     formState: { errors },
   } = useForm<OrderFormValues>({
     resolver: zodResolver(orderSchema),
     defaultValues: {
-      product_id: "",
-      quantity: 1,
-      sale_price_som: 0,
-      courier_fee_som: 0,
-      courier_id: "none",
+      product_id: initialData?.product_id || "",
+      quantity: initialData?.quantity || 1,
+      sale_price_som: initialData?.sale_price_som || 0,
+      courier_fee_som: initialData?.courier_fee_som || 0,
+      courier_id: initialData?.courier_id || "none",
+      customer_name: initialData?.customer_name || "",
+      customer_phone: initialData?.customer_phone || "",
+      delivery_address: initialData?.delivery_address || "",
+      note: initialData?.note || "",
     },
   });
+
+  useEffect(() => {
+    if (initialData) {
+      reset({
+        product_id: initialData.product_id || "",
+        quantity: initialData.quantity || 1,
+        sale_price_som: initialData.sale_price_som || 0,
+        courier_fee_som: initialData.courier_fee_som || 0,
+        courier_id: initialData.courier_id || "none",
+        customer_name: initialData.customer_name || "",
+        customer_phone: initialData.customer_phone || "",
+        delivery_address: initialData.delivery_address || "",
+        note: initialData.note || "",
+      });
+    }
+  }, [initialData, reset]);
 
   const selectedProductId = watch("product_id");
   const selectedCourierId = watch("courier_id");
 
   const selectedProduct = products.find((product) => product.id === selectedProductId);
   const selectedCourier = couriers.filter((courier) => courier.is_active).find((courier) => courier.id === selectedCourierId);
+
+  // Auto-populate sale price when product is selected
+  useEffect(() => {
+    if (selectedProduct && !orderId) {
+      setValue("sale_price_som", selectedProduct.selling_price_som, { shouldValidate: true });
+    }
+  }, [selectedProduct, orderId, setValue]);
 
   const onFormSubmit = async (values: OrderFormValues) => {
     setIsSubmitting(true);

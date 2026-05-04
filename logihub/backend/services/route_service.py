@@ -205,12 +205,12 @@ async def get_route(route_id: UUID, db: AsyncSession) -> RouteOut:
 
 
 async def update_route(route_id: UUID, data: RouteUpdate, db: AsyncSession) -> RouteOut:
-    """Обновить маршрут (только в статусе 'draft')."""
+    """Обновить маршрут (в статусе 'pending' или 'draft')."""
     route = await _fetch_route(route_id, db)
-    if route.status != "draft":
+    if route.status not in ("pending", "draft"):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Only draft routes can be updated",
+            detail="Only pending or draft routes can be updated",
         )
 
     if data.label is not None:
@@ -220,9 +220,16 @@ async def update_route(route_id: UUID, data: RouteUpdate, db: AsyncSession) -> R
         if courier is None or courier.role != "courier":
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Courier not found")
         route.courier_id = data.courier_id
-        # Re-assign all stops to new courier
+        
+        # Если маршрут был на проверке, переводим в черновик
+        if route.status == "pending":
+            route.status = "draft"
+            
+        # Обновляем все остановки: назначаем курьера и меняем статус с 'pending' на 'assigned'
         for stop in route.stops:
             stop.courier_id = data.courier_id
+            if stop.status == "pending":
+                stop.status = "assigned"
 
     await db.commit()
     route = await _fetch_route(route_id, db)
@@ -234,12 +241,12 @@ async def update_route(route_id: UUID, data: RouteUpdate, db: AsyncSession) -> R
 
 
 async def cancel_route(route_id: UUID, db: AsyncSession) -> None:
-    """Отменить маршрут (только draft). Возвращает заказы в статус 'new'."""
+    """Отменить маршрут (pending или draft). Возвращает заказы в статус 'new'."""
     route = await _fetch_route(route_id, db)
-    if route.status != "draft":
+    if route.status not in ("pending", "draft"):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Only draft routes can be deleted/cancelled",
+            detail="Only pending or draft routes can be deleted/cancelled",
         )
 
     for stop in route.stops:
@@ -261,19 +268,31 @@ async def cancel_route(route_id: UUID, db: AsyncSession) -> None:
 # ─────────────────────────────────────────────────────
 
 async def start_route(route_id: UUID, db: AsyncSession) -> RouteOut:
-    """Активировать маршрут (draft → active).
-
+    """Активировать маршрут (pending/draft → active).
+    
+    - Если маршрут был 'pending', он должен иметь назначенного курьера.
     - Первая остановка переходит в in_transit.
     - Курьер получает Telegram-уведомление (вызывается из роутера).
     """
     import datetime as dt
 
     route = await _fetch_route(route_id, db, lock=True)
-    if route.status != "draft":
+    if route.status not in ("pending", "draft"):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Route is '{route.status}' — only 'draft' routes can be started",
+            detail=f"Route is '{route.status}' — only 'pending' or 'draft' routes can be started",
         )
+
+    if route.courier_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Cannot start a route without an assigned courier",
+        )
+
+    # Transition orders from pending to assigned if starting from pending
+    for stop in route.stops:
+        if stop.status == "pending":
+            stop.status = "assigned"
 
     stops = sorted(route.stops, key=lambda s: s.stop_sequence or 0)
     if not stops:

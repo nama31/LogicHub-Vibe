@@ -75,6 +75,7 @@ export default function OrdersPage() {
             className="h-12 border border-beige bg-cream rounded-xl px-4 text-ocean font-semibold focus:ring-ocean/10 outline-none cursor-pointer min-w-[140px]"
           >
             <option value="" className="bg-cream">Все статусы</option>
+            <option value="pending" className="bg-cream">На проверке</option>
             <option value="new" className="bg-cream">Новые</option>
             <option value="assigned" className="bg-cream">Назначены</option>
             <option value="in_transit" className="bg-cream">В пути</option>

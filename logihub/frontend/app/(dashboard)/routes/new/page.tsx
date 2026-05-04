@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useOrders } from "@/hooks/useOrders";
-import { useCouriers } from "@/hooks/useCouriers";
+import { useUsers } from "@/hooks/useUsers";
 import { useRoutes } from "@/hooks/useRoutes";
 import type { Order } from "@/types/order";
 import { Button } from "@/components/ui/button";
@@ -128,7 +128,7 @@ function StopSequenceItem({
 export default function NewRoutePage() {
   const router = useRouter();
   const { orders, loading: ordersLoading } = useOrders({ status: "new" });
-  const { couriers, loading: couriersLoading } = useCouriers({ isActive: true });
+  const { users: couriers, loading: couriersLoading } = useUsers({ role: "courier", isActive: true });
   const { createRoute } = useRoutes();
 
   const [label, setLabel] = useState("");

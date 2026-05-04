@@ -17,6 +17,10 @@ from models.order import Order
 from models.order_status_log import OrderStatusLog
 from models.user import User
 
+from models.product import Product
+from models.route import Route
+from services.notification_service import notify_admin_new_client_order
+
 router = APIRouter(prefix="/bot", tags=["bot"])
 
 
@@ -25,6 +29,7 @@ class BotStatusUpdateRequest(BaseModel):
 
     new_status: Literal["in_transit", "delivered", "failed"] = Field(...)
     tg_id: int = Field(..., ge=1)
+    reason: str | None = None
 
 
 class BotRegisterRequest(BaseModel):
@@ -34,13 +39,39 @@ class BotRegisterRequest(BaseModel):
     tg_id: int = Field(..., ge=1)
 
 
+class ClientBatchItem(BaseModel):
+    """Элемент заказа в корзине."""
+
+    product_id: UUID = Field(...)
+    quantity: int = Field(..., ge=1)
+
+
+class BotClientBatchOrderRequest(BaseModel):
+    """Запрос на создание нескольких заказов (корзина)."""
+
+    tg_id: int = Field(..., ge=1)
+    items: list[ClientBatchItem] = Field(..., min_length=1)
+    delivery_address: str = Field(..., min_length=1)
+    note: str | None = None
+
+
+class BotClientOrderRequest(BaseModel):
+    """Запрос на создание заказа клиентом."""
+
+    tg_id: int = Field(..., ge=1)
+    product_id: UUID = Field(...)
+    quantity: int = Field(..., ge=1)
+    delivery_address: str = Field(..., min_length=1)
+    note: str | None = None
+
+
 @router.post("/register")
-async def register_courier_bot(
+async def register_bot_user(
     payload: BotRegisterRequest,
     db: AsyncSession = Depends(get_db),
     _secret: bool = Depends(require_bot_secret),
 ) -> dict:
-    """Регистрация курьера по номеру телефона."""
+    """Регистрация пользователя (курьера или клиента) по номеру телефона."""
 
     from services.user_service import get_user_by_phone
     
@@ -48,14 +79,207 @@ async def register_courier_bot(
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User with this phone not found")
     
-    if user.role != "courier":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is not a courier")
+    if user.role not in ["courier", "client"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied for this role")
 
     user.tg_id = payload.tg_id
     user.is_active = True
     
     await db.commit()
     return {"status": "ok", "user_id": str(user.id)}
+
+
+@router.get("/users/{tg_id}")
+async def get_bot_user(
+    tg_id: int,
+    db: AsyncSession = Depends(get_db),
+    _secret: bool = Depends(require_bot_secret),
+) -> dict:
+    """Получение данных пользователя по tg_id."""
+
+    user = await db.scalar(select(User).where(User.tg_id == tg_id))
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    
+    return {
+        "id": user.id,
+        "name": user.name,
+        "role": user.role,
+        "is_active": user.is_active,
+    }
+
+
+@router.get("/catalog")
+async def get_bot_catalog(
+    tg_id: int,
+    db: AsyncSession = Depends(get_db),
+    _secret: bool = Depends(require_bot_secret),
+) -> list:
+    """Получение каталога товаров (для клиентов)."""
+
+    user = await db.scalar(select(User).where(User.tg_id == tg_id))
+    if user is None or not user.is_active or user.role != "client":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Client access required")
+
+    result = await db.execute(
+        select(Product)
+        .where(Product.stock_quantity > 0)
+        .order_by(Product.title.asc())
+    )
+    products = result.scalars().all()
+    
+    return [
+        {
+            "id": p.id,
+            "title": p.title,
+            "unit": p.unit,
+            "stock_quantity": p.stock_quantity,
+        }
+        for p in products
+    ]
+
+
+@router.post("/orders/client")
+async def create_client_order_bot(
+    payload: BotClientOrderRequest,
+    db: AsyncSession = Depends(get_db),
+    _secret: bool = Depends(require_bot_secret),
+) -> dict:
+    """Создание заказа клиентом через бот."""
+
+    user = await db.scalar(select(User).where(User.tg_id == payload.tg_id))
+    if user is None or not user.is_active or user.role != "client":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Client access required")
+
+    product = await db.get(Product, payload.product_id)
+    if product is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+
+    if product.stock_quantity < payload.quantity:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Insufficient stock")
+
+    order = Order(
+        product_id=payload.product_id,
+        quantity=payload.quantity,
+        sale_price=product.selling_price,
+        courier_fee=0, # Заполняется админом позже
+        customer_name=user.name,
+        customer_phone=user.phone,
+        delivery_address=payload.delivery_address,
+        note=payload.note,
+        status="pending"
+    )
+    
+    product.stock_quantity -= payload.quantity
+    db.add(order)
+    await db.flush() # Получаем ID заказа
+
+    # Лог статуса
+    db.add(
+        OrderStatusLog(
+            order_id=order.id,
+            changed_by=user.id,
+            old_status=None,
+            new_status="new",
+            changed_at=datetime.now(UTC),
+        )
+    )
+
+    await db.commit()
+
+    # Уведомление админа
+    admin = await db.scalar(select(User).where(User.role == "admin", User.tg_id.isnot(None)))
+    if admin:
+        import asyncio
+        asyncio.create_task(notify_admin_new_client_order(user.name, order.id, admin.tg_id))
+
+    await manager.broadcast({"event": "order_created", "id": order.id})
+
+    return {"status": "ok", "order_id": order.id}
+
+
+@router.post("/orders/client/batch")
+async def create_client_batch_orders_bot(
+    payload: BotClientBatchOrderRequest,
+    db: AsyncSession = Depends(get_db),
+    _secret: bool = Depends(require_bot_secret),
+) -> dict:
+    """Создание нескольких заказов (корзина) клиентом через бот."""
+
+    user = await db.scalar(select(User).where(User.tg_id == payload.tg_id))
+    if user is None or not user.is_active or user.role != "client":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Client access required")
+
+    # 1. Создаем маршрут (черновик на проверке)
+    route = Route(
+        courier_id=None,
+        created_by=user.id,
+        label=f"Заказ: {user.name}",
+        status="pending"
+    )
+    db.add(route)
+    await db.flush()
+
+    created_orders = []
+    
+    for idx, item in enumerate(payload.items, 1):
+        product = await db.get(Product, item.product_id)
+        if product is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Product {item.product_id} not found")
+
+        if product.stock_quantity < item.quantity:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, 
+                detail=f"Insufficient stock for {product.title}"
+            )
+
+        order = Order(
+            product_id=item.product_id,
+            quantity=item.quantity,
+            sale_price=product.selling_price,
+            courier_fee=0,
+            customer_name=user.name,
+            customer_phone=user.phone,
+            delivery_address=payload.delivery_address,
+            note=payload.note,
+            status="pending",
+            route_id=route.id,
+            stop_sequence=idx
+        )
+        
+        product.stock_quantity -= item.quantity
+        db.add(order)
+        created_orders.append(order)
+
+    await db.flush() # Получаем ID всех заказов
+
+    for order in created_orders:
+        db.add(
+            OrderStatusLog(
+                order_id=order.id,
+                changed_by=user.id,
+                old_status=None,
+                new_status="pending",
+                changed_at=datetime.now(UTC),
+            )
+        )
+        await manager.broadcast({"event": "order_created", "id": order.id})
+
+    await manager.broadcast({"event": "route_created", "id": str(route.id)})
+
+    await db.commit()
+
+    # Уведомление админа (один раз на всю пачку)
+    admin = await db.scalar(select(User).where(User.role == "admin", User.tg_id.isnot(None)))
+    if admin:
+        import asyncio
+        # Уведомляем о пачке, указывая количество заказов
+        order_ids_str = ", ".join([f"#{o.id}" for o in created_orders])
+        message = f"🛒 Новый заказ (корзина) от <b>{user.name}</b>\nКол-во позиций: {len(created_orders)}\nID: {order_ids_str}"
+        
+        asyncio.create_task(notify_admin_new_client_order(user.name, f"пачки ({len(created_orders)} поз.)", admin.tg_id))
+
+    return {"status": "ok", "order_ids": [o.id for o in created_orders]}
 
 
 @router.post("/webhook")
@@ -138,6 +362,13 @@ async def update_order_status_bot(
     old_status = order.status
     order.status = payload.new_status
 
+    if payload.new_status == "failed" and payload.reason:
+        reason_text = f"Courier Report: {payload.reason}"
+        if order.note:
+            order.note = f"{order.note}\n{reason_text}"
+        else:
+            order.note = reason_text
+
     db.add(
         OrderStatusLog(
             order_id=order.id,
@@ -149,6 +380,18 @@ async def update_order_status_bot(
     )
 
     await db.commit()
+
+    if payload.new_status == "in_transit" and order.customer_phone:
+        import asyncio
+        from services.notification_service import notify_customer_order_dispatched
+        
+        # Попытка найти клиента по номеру телефона, чтобы отправить уведомление в бот
+        client_user = await db.scalar(
+            select(User).where(User.phone == order.customer_phone, User.role == "client")
+        )
+        customer_tg_id = client_user.tg_id if client_user else None
+        
+        asyncio.create_task(notify_customer_order_dispatched(order, courier, order.product, customer_tg_id))
 
     await manager.broadcast({
         "event": "order_updated",

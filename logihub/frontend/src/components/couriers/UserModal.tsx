@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import type { User } from "@/types/user";
+import type { User, UserRole } from "@/types/user";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,33 +13,42 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-type CourierFormData = {
+type UserFormData = {
   name: string;
+  role: UserRole;
   tg_id: number | null;
   phone?: string;
   is_active?: boolean;
 };
 
-type CourierFormErrors = Partial<Record<keyof CourierFormData, string>>;
+type UserFormErrors = Partial<Record<keyof UserFormData, string>>;
 
-interface CourierModalProps {
-  courier?: User;
+interface UserModalProps {
+  user?: User;
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: CourierFormData) => Promise<any>;
+  onSubmit: (data: UserFormData) => Promise<any>;
 }
 
-const EMPTY_VALUES: CourierFormData = {
+const EMPTY_VALUES: UserFormData = {
   name: "",
+  role: "courier",
   tg_id: null,
   phone: "",
 };
 
-export function CourierModal({ courier, open, onClose, onSubmit }: CourierModalProps) {
-  const isEdit = Boolean(courier);
-  const [values, setValues] = useState<CourierFormData>(EMPTY_VALUES);
-  const [errors, setErrors] = useState<CourierFormErrors>({});
+export function UserModal({ user, open, onClose, onSubmit }: UserModalProps) {
+  const isEdit = Boolean(user);
+  const [values, setValues] = useState<UserFormData>(EMPTY_VALUES);
+  const [errors, setErrors] = useState<UserFormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const formatPhoneNumber = (input: string) => {
@@ -47,7 +56,6 @@ export function CourierModal({ courier, open, onClose, onSubmit }: CourierModalP
     if (digits.length === 0) return "";
     
     let cleanDigits = digits;
-    // Если введено с 996 в начале, убираем его для форматирования
     if (digits.startsWith("996")) {
       cleanDigits = digits.substring(3);
     }
@@ -72,32 +80,33 @@ export function CourierModal({ courier, open, onClose, onSubmit }: CourierModalP
     if (!open) return;
 
     setValues(
-      courier
+      user
         ? {
-            name: courier.name,
-            tg_id: courier.tg_id ?? null,
-            phone: courier.phone ?? "",
-            is_active: courier.is_active,
+            name: user.name,
+            role: user.role,
+            tg_id: user.tg_id ?? null,
+            phone: user.phone ?? "",
+            is_active: user.is_active,
           }
         : EMPTY_VALUES,
     );
     setErrors({});
     setIsSubmitting(false);
-  }, [open, courier]);
+  }, [open, user]);
 
-  function updateField<K extends keyof CourierFormData>(field: K, value: CourierFormData[K]) {
+  function updateField<K extends keyof UserFormData>(field: K, value: UserFormData[K]) {
     setValues((current) => ({ ...current, [field]: value }));
     setErrors((current) => ({ ...current, [field]: undefined }));
   }
 
-  function validate(nextValues: CourierFormData): CourierFormErrors {
-    const nextErrors: CourierFormErrors = {};
+  function validate(nextValues: UserFormData): UserFormErrors {
+    const nextErrors: UserFormErrors = {};
 
     if (!nextValues.name.trim()) {
-      nextErrors.name = "Введите имя курьера";
+      nextErrors.name = "Введите имя";
     }
 
-    if (!nextValues.phone?.trim()) {
+    if (nextValues.role !== "admin" && !nextValues.phone?.trim()) {
       nextErrors.phone = "Введите номер телефона для регистрации в боте";
     }
 
@@ -116,11 +125,11 @@ export function CourierModal({ courier, open, onClose, onSubmit }: CourierModalP
 
     try {
       const phoneValue = values.phone?.trim() || "";
-      // Сохраняем в БД чистый номер с плюсом для консистентности
       const cleanPhone = phoneValue ? "+" + phoneValue.replace(/\D/g, "") : "";
       
       await onSubmit({
         name: values.name.trim(),
+        role: values.role,
         tg_id: values.tg_id,
         ...(cleanPhone ? { phone: cleanPhone } : {}),
         is_active: values.is_active,
@@ -141,12 +150,12 @@ export function CourierModal({ courier, open, onClose, onSubmit }: CourierModalP
       <DialogContent className="sm:max-w-md bg-cream border-border">
         <DialogHeader>
           <DialogTitle className="text-ocean">
-            {isEdit ? "Редактировать курьера" : "Добавить курьера"}
+            {isEdit ? "Редактировать пользователя" : "Добавить пользователя"}
           </DialogTitle>
           <DialogDescription className="text-muted-foreground">
             {isEdit
-              ? "Измените данные существующего курьера"
-              : "Заполните данные для добавления нового курьера. Telegram ID обязателен для работы бота."}
+              ? "Измените данные существующего пользователя"
+              : "Заполните данные для добавления нового пользователя."}
           </DialogDescription>
         </DialogHeader>
 
@@ -164,6 +173,24 @@ export function CourierModal({ courier, open, onClose, onSubmit }: CourierModalP
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="role" className="text-ocean font-medium">Роль</Label>
+            <Select 
+              value={values.role} 
+              onValueChange={(val) => updateField("role", val as UserRole)}
+              disabled={isEdit}
+            >
+              <SelectTrigger className="h-10 border-beige focus:ring-ocean">
+                <SelectValue placeholder="Выберите роль" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="courier">Курьер</SelectItem>
+                <SelectItem value="client">Клиент</SelectItem>
+                <SelectItem value="admin">Админ</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="tg_id" className="text-ocean font-medium">Telegram ID (необязательно)</Label>
             <Input
               id="tg_id"
@@ -176,10 +203,11 @@ export function CourierModal({ courier, open, onClose, onSubmit }: CourierModalP
                 updateField("tg_id", val === "" ? null : Number(val));
               }}
             />
-            <p className="text-[10px] text-muted-foreground mt-1">
-              Если оставить пустым, курьер сможет зарегистрироваться сам через бот по номеру телефона.
-            </p>
-            {errors.tg_id && <p className="text-xs text-destructive">{errors.tg_id}</p>}
+            {values.role !== "admin" && (
+                <p className="text-[10px] text-muted-foreground mt-1">
+                Если оставить пустым, пользователь сможет зарегистрироваться сам через бот по номеру телефона.
+                </p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -208,7 +236,7 @@ export function CourierModal({ courier, open, onClose, onSubmit }: CourierModalP
                 className="w-4 h-4 text-ocean border-beige rounded focus:ring-ocean"
               />
               <Label htmlFor="is_active" className="text-ocean font-medium cursor-pointer">
-                Курьер активен
+                Пользователь активен
               </Label>
             </div>
           )}

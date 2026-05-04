@@ -20,11 +20,14 @@ import {
   User,
   Play,
   Trash2,
+  UserPlus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { AssignCourierModal } from "@/components/routes/AssignCourierModal";
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
+  pending: { label: "Проверка", className: "bg-amber-100 text-amber-700" },
   new: { label: "Ожидает", className: "bg-beige/60 text-ocean" },
   assigned: { label: "Назначен", className: "bg-blue-100 text-blue-700" },
   in_transit: { label: "В пути", className: "bg-amber-100 text-amber-700" },
@@ -33,6 +36,7 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
 };
 
 const ROUTE_STATUS_CONFIG: Record<RouteStatus, { label: string; color: string }> = {
+  pending: { label: "Проверка", color: "text-amber-600" },
   draft: { label: "Черновик", color: "text-ocean" },
   active: { label: "Активный", color: "text-blue-600" },
   completed: { label: "Завершён", color: "text-emerald-600" },
@@ -50,88 +54,87 @@ function StopCard({ stop, isActive }: { stop: Stop; isActive: boolean }) {
   const statusCfg = STATUS_CONFIG[stop.status] ?? { label: stop.status, className: "" };
 
   return (
-    <div
-      className={cn(
-        "relative flex gap-4 p-5 rounded-2xl border transition-all",
-        isActive
-          ? "border-amber-300 bg-amber-50/60 shadow-md shadow-amber-100"
-          : stop.status === "delivered"
-          ? "border-emerald-200/60 bg-emerald-50/30 opacity-80"
-          : stop.status === "failed"
-          ? "border-red-200/60 bg-red-50/30 opacity-80"
-          : "border-beige/40 bg-white/60"
-      )}
-    >
-      {/* Sequence number */}
-      <div className="flex flex-col items-center gap-1 shrink-0">
-        <div
-          className={cn(
-            "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0",
-            stop.status === "delivered"
-              ? "bg-emerald-500 text-white"
-              : stop.status === "failed"
-              ? "bg-red-400 text-white"
-              : isActive
-              ? "bg-amber-500 text-white"
-              : "bg-beige/60 text-ocean"
-          )}
-        >
-          {stop.stop_sequence}
+    <Link href={`/orders/${stop.id}`} className="block group/stop">
+      <div
+        className={cn(
+          "relative flex gap-4 p-5 rounded-2xl border transition-all hover:border-ocean/20 hover:shadow-sm",
+          isActive
+            ? "border-amber-300 bg-amber-50/60 shadow-md shadow-amber-100"
+            : stop.status === "delivered"
+            ? "border-emerald-200/60 bg-emerald-50/30 opacity-80"
+            : stop.status === "failed"
+            ? "border-red-200/60 bg-red-50/30 opacity-80"
+            : "border-beige/40 bg-white/60"
+        )}
+      >
+        {/* Sequence number */}
+        <div className="flex flex-col items-center gap-1 shrink-0">
+          <div
+            className={cn(
+              "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0",
+              stop.status === "delivered"
+                ? "bg-emerald-500 text-white"
+                : stop.status === "failed"
+                ? "bg-red-400 text-white"
+                : isActive
+                ? "bg-amber-500 text-white"
+                : "bg-beige/60 text-ocean"
+            )}
+          >
+            {stop.stop_sequence}
+          </div>
+          <StopIcon status={stop.status} />
         </div>
-        <StopIcon status={stop.status} />
-      </div>
 
-      {/* Details */}
-      <div className="flex-1 min-w-0 space-y-2">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full", statusCfg.className)}>
-            {statusCfg.label}
-          </span>
-          {isActive && (
-            <span className="text-xs font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full animate-pulse">
-              Текущая
+        {/* Details */}
+        <div className="flex-1 min-w-0 space-y-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full", statusCfg.className)}>
+              {statusCfg.label}
             </span>
-          )}
-        </div>
-
-        <div className="flex items-start gap-2 text-sm">
-          <MapPin size={14} className="text-muted-foreground shrink-0 mt-0.5" />
-          <span className="text-ocean font-medium">{stop.delivery_address}</span>
-        </div>
-
-        {stop.customer_name && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <User size={14} className="shrink-0" />
-            <span>{stop.customer_name}</span>
-            {stop.customer_phone && (
-              <>
-                <span>·</span>
-                <a
-                  href={`tel:${stop.customer_phone}`}
-                  className="flex items-center gap-1 text-ocean hover:underline"
-                >
-                  <Phone size={12} />
-                  {stop.customer_phone}
-                </a>
-              </>
+            {isActive && (
+              <span className="text-xs font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full animate-pulse">
+                Текущая
+              </span>
             )}
           </div>
-        )}
 
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Package size={14} className="shrink-0" />
-          <span>
-            {stop.product_title ?? "Товар"} × {stop.quantity}
-          </span>
+          <div className="flex items-start gap-2 text-sm">
+            <MapPin size={14} className="text-muted-foreground shrink-0 mt-0.5" />
+            <span className="text-ocean font-medium">{stop.delivery_address}</span>
+          </div>
+
+          {stop.customer_name && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <User size={14} className="shrink-0" />
+              <span>{stop.customer_name}</span>
+              {stop.customer_phone && (
+                <>
+                  <span>·</span>
+                  <div className="flex items-center gap-1 text-ocean">
+                    <Phone size={12} />
+                    {stop.customer_phone}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Package size={14} className="shrink-0" />
+            <span>
+              {stop.product_title ?? "Товар"} × {stop.quantity}
+            </span>
+          </div>
+
+          {stop.note && (
+            <p className="text-xs text-muted-foreground italic bg-beige/30 rounded-lg px-3 py-1.5">
+              💬 {stop.note}
+            </p>
+          )}
         </div>
-
-        {stop.note && (
-          <p className="text-xs text-muted-foreground italic bg-beige/30 rounded-lg px-3 py-1.5">
-            💬 {stop.note}
-          </p>
-        )}
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -141,6 +144,7 @@ export default function RouteDetailPage({ params }: { params: Promise<{ id: stri
   const { startRoute, cancelRoute } = useRoutes();
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
 
   if (loading) {
     return (
@@ -275,27 +279,45 @@ export default function RouteDetailPage({ params }: { params: Promise<{ id: stri
       )}
 
       {/* Actions */}
-      {route.status === "draft" && (
-        <div className="flex gap-3">
-          <Button
-            onClick={handleStart}
-            disabled={actionLoading}
-            className="flex-1 bg-[#2C365A] text-[#EEE8DF] hover:bg-[#2C365A]/90 rounded-xl h-11 font-bold gap-2 shadow-lg transition-all active:scale-95"
-          >
-            {actionLoading ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
-            Активировать маршрут
-          </Button>
+      {(route.status === "draft" || route.status === "pending") && (
+        <div className="flex flex-col sm:flex-row gap-3">
+          {!route.courier ? (
+            <Button
+              onClick={() => setIsAssignModalOpen(true)}
+              className="flex-1 bg-ocean text-cream hover:bg-ocean/90 rounded-xl h-11 font-bold gap-2 shadow-lg transition-all active:scale-95"
+            >
+              <UserPlus size={16} />
+              Назначить курьера
+            </Button>
+          ) : (
+            <Button
+              onClick={handleStart}
+              disabled={actionLoading}
+              className="flex-1 bg-[#2C365A] text-[#EEE8DF] hover:bg-[#2C365A]/90 rounded-xl h-11 font-bold gap-2 shadow-lg transition-all active:scale-95"
+            >
+              {actionLoading ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
+              Активировать маршрут
+            </Button>
+          )}
+          
           <Button
             onClick={handleCancel}
             disabled={actionLoading}
             variant="outline"
-            className="rounded-xl h-11 text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600 gap-2"
+            className="rounded-xl h-11 text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600 gap-2 flex-1 sm:flex-none"
           >
             <Trash2 size={16} />
             Отменить
           </Button>
         </div>
       )}
+
+      <AssignCourierModal
+        routeId={route.id}
+        isOpen={isAssignModalOpen}
+        onClose={() => setIsAssignModalOpen(false)}
+        onAssigned={refetch}
+      />
 
       {/* Stop timeline */}
       <div className="space-y-3">

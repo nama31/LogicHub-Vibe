@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     """Настройки приложения."""
 
     model_config = SettingsConfigDict(
-        env_file=Path(__file__).resolve().parents[2] / ".env",
+        env_file=Path(__file__).resolve().parents[1] / ".env",
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     bot_secret: str | None = Field(default=None, alias="BOT_SECRET")
     telegram_bot_token: str | None = Field(default=None, alias="TELEGRAM_BOT_TOKEN")
     redis_url: str = Field(default="redis://localhost:6379", alias="REDIS_URL")
-
+    whatsapp_api_url: str | None = Field(default=None, alias="WHATSAPP_API_URL")
+    whatsapp_api_token: str | None = Field(default=None, alias="WHATSAPP_API_TOKEN")
 
 settings = Settings()

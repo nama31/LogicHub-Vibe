@@ -9,7 +9,7 @@ def build_main_menu() -> ReplyKeyboardMarkup:
 	return ReplyKeyboardMarkup(
 		keyboard=[
 			[KeyboardButton(text="📦 Активный маршрут")],
-			[KeyboardButton(text="📋 История"), KeyboardButton(text="❓ Помощь")],
+			[KeyboardButton(text="📋 История")],
 		],
 		resize_keyboard=True,
 	)

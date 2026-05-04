@@ -10,7 +10,7 @@ from .product import ProductOut
 from .user import UserOut
 
 
-OrderStatus = Literal["new", "assigned", "in_transit", "delivered", "failed"]
+OrderStatus = Literal["pending", "new", "assigned", "in_transit", "delivered", "failed"]
 
 
 class OrderCreate(BaseModel):

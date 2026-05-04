@@ -11,34 +11,44 @@ from bot.core.http_client import BackendClient, BackendClientError
 
 
 @dataclass(slots=True)
-class CourierAuthService:
-	"""Кэш и проверка доступа курьера по tg_id."""
+class BotAuthService:
+	"""Кэш и проверка доступа пользователя по tg_id."""
 
 	client: BackendClient
 	cache_ttl_seconds: int = settings.courier_cache_ttl_seconds
-	_allowed_tg_ids: set[int] = field(default_factory=set)
-	_cached_at: float = 0.0
+	_user_cache: dict[int, dict] = field(default_factory=dict)
+	_cached_at: dict[int, float] = field(default_factory=dict)
 	_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
-	async def refresh(self) -> set[int]:
-		"""Обновить кэш курьеров из backend."""
+	async def get_user(self, tg_id: int) -> dict | None:
+		"""Получить данные пользователя из кэша или backend."""
+
+		now = monotonic()
+		if tg_id in self._user_cache:
+			if (now - self._cached_at[tg_id]) < self.cache_ttl_seconds:
+				return self._user_cache[tg_id]
 
 		async with self._lock:
+			# Double check after lock
+			if tg_id in self._user_cache and (now - self._cached_at[tg_id]) < self.cache_ttl_seconds:
+				return self._user_cache[tg_id]
+
 			try:
-				allowed_ids = await self.client.fetch_courier_tg_ids()
-			except BackendClientError:
-				if not self._allowed_tg_ids:
-					raise
-				return self._allowed_tg_ids
+				user = await self.client.fetch_user_by_tg_id(tg_id)
+				if user:
+					self._user_cache[tg_id] = user
+					self._cached_at[tg_id] = now
+					return user
+			except Exception:
+				pass
+			
+			return None
 
-			self._allowed_tg_ids = allowed_ids
-			self._cached_at = monotonic()
-			return self._allowed_tg_ids
+	async def refresh(self) -> None:
+		"""Очистить кэш (для совместимости с существующим кодом)."""
+		self._user_cache.clear()
+		self._cached_at.clear()
 
-	async def is_allowed(self, tg_id: int) -> bool:
-		"""Проверить, зарегистрирован ли курьер."""
-
-		if not self._allowed_tg_ids or (monotonic() - self._cached_at) > self.cache_ttl_seconds:
-			await self.refresh()
-
-		return tg_id in self._allowed_tg_ids
+	async def check_connection(self) -> None:
+		"""Проверить соединение с бекендом."""
+		await self.client.fetch_courier_tg_ids()

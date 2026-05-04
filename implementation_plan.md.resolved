@@ -1,0 +1,178 @@
+# Multi-Role Platform Expansion: Adding "Client" Role
+
+## Overview
+
+Expand LogiHub from a courier-only bot system into a multi-role platform. Managers create client accounts via the web panel. Clients use the Telegram bot to view the product catalog, place orders, and track their statuses.
+
+**Scope for this session (Phase 1 — Backend & Database):**
+1. Add `"client"` to `USER_ROLES` + update the Postgres `user_role` enum via migration
+2. Allow `POST /users` to create client accounts
+3. Add `GET /bot/catalog` — public product listing for the bot (bot-secret protected)
+4. Add `POST /bot/orders/client` — client submits an order; notifies admin via Telegram
+
+**Phase 2 (Bot Routing) and Phase 3 (Frontend) are captured below for awareness but are NOT in this execution run.**
+
+---
+
+## User Review Required
+
+> [!IMPORTANT]
+> **Database Enum Migration**: PostgreSQL `Enum` types are not altered by simply changing Python code. We must run an `ALTER TYPE user_role ADD VALUE 'client'` migration. Because Alembic doesn't auto-detect enum changes, this is a raw SQL migration. The migration is safe and non-destructive.
+
+> [!WARNING]
+> **Admin tg_id for notifications**: `POST /bot/orders/client` must push a Telegram message to the Admin. The Admin's `tg_id` is stored in `users` (where `role='admin'`). If no admin has a `tg_id` set, the notification silently logs a warning and is skipped — it will NOT raise an error or block the order creation.
+
+---
+
+## Open Questions
+
+> [!IMPORTANT]
+> **Client Registration Flow (Bot)**: Phase 2 (Bot Routing) is NOT in scope today. For now, the `/bot/register` endpoint only links couriers. Should we also update it to allow clients to self-register via phone? Or will clients always be created by admins and never self-register? This affects Phase 2 design.
+
+> [!IMPORTANT]
+> **Client Order Schema**: A client order placed via the bot is simpler than an admin order — it doesn't have a `courier_fee` or `sale_price` set by the client. What are the defaults? Proposal: `sale_price = 0`, `courier_fee = 0` (admin adjusts later), `delivery_address` provided by the client in the bot conversation.
+
+---
+
+## Proposed Changes
+
+### Phase 1 — Backend & Database
+
+---
+
+#### [MODIFY] [user_roles.py](file:///home/nama/projects/LogicHub-Vibe/logihub/backend/constants/user_roles.py)
+
+Add `"client"` to the `USER_ROLES` list.
+
+```python
+USER_ROLES = ["admin", "courier", "client"]
+```
+
+---
+
+#### [NEW] Migration: `0006_add_client_role.py`
+
+Raw SQL migration to add `'client'` value to the `user_role` Postgres enum:
+
+```sql
+ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'client';
+```
+
+This is the correct and safe way to extend a PostgreSQL native enum.
+
+---
+
+#### [MODIFY] [schemas/user.py](file:///home/nama/projects/LogicHub-Vibe/logihub/backend/schemas/user.py)
+
+Update `UserRole` Literal type:
+
+```python
+UserRole = Literal["admin", "courier", "client"]
+```
+
+This is the only change needed here — `UserCreate`, `UserUpdate`, and `UserOut` all reference `UserRole` and will automatically accept `"client"`.
+
+---
+
+#### [MODIFY] [routers/bot.py](file:///home/nama/projects/LogicHub-Vibe/logihub/backend/routers/bot.py)
+
+Add two new endpoints:
+
+**1. `GET /bot/catalog`** — returns active products for the client to browse:
+```
+GET /bot/catalog?tg_id=<id>
+```
+- Verifies the user with `tg_id` is an active `client`
+- Returns the full product list (title, unit, stock_quantity)
+- Protected by `X-Bot-Secret`
+
+**2. `POST /bot/orders/client`** — submits a client order:
+```json
+{
+  "tg_id": 123456,
+  "product_id": "uuid",
+  "quantity": 2,
+  "delivery_address": "ул. Ленина 1",
+  "note": "optional"
+}
+```
+- Validates `tg_id` maps to an active `client`
+- Creates order with `status="new"`, `sale_price=0`, `courier_fee=0`, `courier_id=null`
+- Decrements `product.stock_quantity`
+- Appends to `order_status_log` (changed_by = client user id)
+- Fires async notification to Admin via Telegram (new function in `notification_service.py`)
+- Protected by `X-Bot-Secret`
+
+---
+
+#### [MODIFY] [services/notification_service.py](file:///home/nama/projects/LogicHub-Vibe/logihub/backend/services/notification_service.py)
+
+Add new function `notify_admin_new_client_order(client_name: str, order_id: int)`:
+- Fetches the first admin with a non-null `tg_id` from the DB
+- Sends: `"🔔 Новый заказ от клиента {client_name}! (Заказ #{order_id})"`
+- Sends as plain HTML message (no keyboard needed)
+- Silently skips if no admin has a `tg_id`
+
+**Note**: This function needs a `db: AsyncSession` to look up the admin `tg_id`, OR it can accept the admin's `tg_id` directly. **Proposal: pass `admin_tg_id: int | None` into the function to keep it stateless**, and resolve the admin `tg_id` in the router.
+
+---
+
+### Phase 2 — Bot Routing (Future, Not in Scope)
+
+The bot's `CourierAuthMiddleware` and `start.py` handler will be upgraded to a "router":
+- Check DB via `auth_service` → `role`
+- If `role == 'courier'`: inject `courier_tg_id`, show courier menu
+- If `role == 'client'`: inject `client_tg_id`, show client menu (Catalog, Order, History)
+- If unknown: show registration prompt
+
+New handlers needed:
+- `handlers/client_catalog.py` — calls `GET /bot/catalog`
+- `handlers/client_order.py` — FSM for placing an order, calls `POST /bot/orders/client`
+- `keyboards/client_menu.py` — client main menu keyboard
+
+---
+
+### Phase 3 — Frontend: Users Directory (Future, Not in Scope)
+
+Upgrade `/couriers` page → `/users` or keep `/couriers` path but add tabs:
+- **Курьеры** tab: existing `CourierTable` + `CourierModal`
+- **Клиенты** tab: new `ClientTable` + `ClientModal` (simpler: name, phone, tg_id, is_active)
+
+Changes needed:
+- `src/types/user.ts` → add `"client"` to `UserRole`
+- `src/hooks/useClients.ts` → new hook (mirrors `useCouriers.ts` but `role=client`)
+- `src/components/clients/ClientTable.tsx`
+- `src/components/clients/ClientModal.tsx`
+- `app/(dashboard)/couriers/page.tsx` → add tabbed layout
+
+Sidebar label change: "Курьеры" → "Пользователи" (`/couriers` path unchanged).
+
+---
+
+## Verification Plan
+
+### Automated Checks
+```bash
+# 1. Confirm migration runs clean
+cd logihub/backend && alembic upgrade head
+
+# 2. Confirm the FastAPI app starts without errors
+# (docker-compose up or uvicorn main:app)
+
+# 3. Test endpoints via curl
+# Create a client user
+curl -X POST /users -H "Authorization: Bearer <admin_jwt>" \
+  -d '{"name":"Test Client","role":"client","phone":"+996771000001"}'
+
+# Fetch catalog as client bot
+curl -X GET "/bot/catalog?tg_id=<client_tg_id>" -H "X-Bot-Secret: <secret>"
+
+# Submit client order
+curl -X POST /bot/orders/client -H "X-Bot-Secret: <secret>" \
+  -d '{"tg_id":<client_tg_id>,"product_id":"...","quantity":1,"delivery_address":"Test"}'
+```
+
+### Manual Verification
+- Confirm new `client` option appears in the UserCreate form on the frontend
+- Confirm Telegram admin notification fires when a client order is submitted
+- Confirm order appears in the admin orders list with `status=new`

@@ -17,9 +17,15 @@ async def get_products(db: AsyncSession) -> List[Product]:
     products = list(result.scalars().all())
 
     for product in products:
-        product.purchase_price_som = tiyins_to_som(product.purchase_price)
+        _serialize_product(product)
 
     return products
+
+def _serialize_product(product: Product) -> Product:
+    """Сериализация цен товара для ответа."""
+    product.purchase_price_som = tiyins_to_som(product.purchase_price)
+    product.selling_price_som = tiyins_to_som(product.selling_price)
+    return product
 
 async def create_product(data: ProductCreate, db: AsyncSession) -> Product:
     """Создать товар."""
@@ -27,14 +33,14 @@ async def create_product(data: ProductCreate, db: AsyncSession) -> Product:
     product = Product(
         title=data.title,
         purchase_price=som_to_tiyins(data.purchase_price_som),
+        selling_price=som_to_tiyins(data.selling_price_som),
         stock_quantity=data.stock_quantity,
         unit=data.unit,
     )
     db.add(product)
     await db.commit()
     await db.refresh(product)
-    product.purchase_price_som = tiyins_to_som(product.purchase_price)
-    return product
+    return _serialize_product(product)
 
 async def update_product(id: UUID, data: ProductUpdate, db: AsyncSession) -> Product:
     """Обновить товар."""
@@ -47,14 +53,15 @@ async def update_product(id: UUID, data: ProductUpdate, db: AsyncSession) -> Pro
 
     if "purchase_price_som" in update_data:
         update_data["purchase_price"] = som_to_tiyins(update_data.pop("purchase_price_som"))
+    if "selling_price_som" in update_data:
+        update_data["selling_price"] = som_to_tiyins(update_data.pop("selling_price_som"))
 
     for field_name, value in update_data.items():
         setattr(product, field_name, value)
 
     await db.commit()
     await db.refresh(product)
-    product.purchase_price_som = tiyins_to_som(product.purchase_price)
-    return product
+    return _serialize_product(product)
 
 async def delete_product(id: UUID, db: AsyncSession) -> None:
     """Удалить товар."""
@@ -77,7 +84,7 @@ async def restock_product(id: UUID, amount: int, db: AsyncSession) -> Product:
     await db.commit()
     await db.refresh(product)
     
-    product.purchase_price_som = tiyins_to_som(product.purchase_price)
+    _serialize_product(product)
     
     from core.websocket import manager
     await manager.broadcast({"event": "product_restocked", "id": str(product.id), "amount": amount})

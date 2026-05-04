@@ -24,6 +24,8 @@ export function OrderTable({ orders = [], onAssign }: OrderTableProps) {
 
   const getStatusBadge = (status: Order["status"]) => {
     switch (status) {
+      case "pending":
+        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-none font-medium">На проверке</Badge>;
       case "new":
         return <Badge className="bg-beige text-ocean hover:bg-beige/90 border-none font-medium">{STATUS_LABELS_RU[status]}</Badge>;
       case "assigned":

@@ -6,7 +6,8 @@ from aiogram.types import Message, ReplyKeyboardRemove
 
 from bot.core.http_client import BackendClient, BackendClientError
 from bot.keyboards.main_menu import build_main_menu
-from bot.services.auth_service import CourierAuthService
+from bot.keyboards.client_menu import build_client_main_menu
+from bot.services.auth_service import BotAuthService
 
 
 router = Router()
@@ -15,7 +16,7 @@ router = Router()
 @router.message(F.contact)
 async def contact_handler(
 	message: Message,
-	auth_service: CourierAuthService,
+	auth_service: BotAuthService,
 	order_service: Any, # pass-through for middleware compatibility if needed
 ) -> None:
 	"""Обработка расшаренного контакта."""
@@ -35,15 +36,19 @@ async def contact_handler(
 	try:
 		# Вызываем регистрацию в бекенде
 		# Используем клиент из auth_service
-		await auth_service.client.register_courier(phone, tg_id)
+		await auth_service.client.register_user(phone, tg_id)
 		
 		# Обновляем кэш авторизации
 		await auth_service.refresh()
+		user_db = await auth_service.get_user(tg_id)
+		
+		role = user_db.get("role") if user_db else "courier"
+		keyboard = build_client_main_menu() if role == "client" else build_main_menu()
 		
 		await message.answer(
 			f"Регистрация успешна! Ваш номер {phone} привязан к аккаунту.\n"
 			"Теперь вы можете полноценно пользоваться ботом.",
-			reply_markup=build_main_menu(),
+			reply_markup=keyboard,
 		)
 	except BackendClientError as e:
 		if e.status_code == 404:

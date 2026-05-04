@@ -30,11 +30,8 @@ def _build_stop_keyboard(route_id: str, stop_id: int, phone: str | None, address
 	"""Кнопки действий для текущей остановки."""
 	buttons: list[list[InlineKeyboardButton]] = []
 
-	# Row 1: Phone + Map (only if data available)
-	row1 = []
-	if phone:
-		row1.append(InlineKeyboardButton(text="📞 Позвонить", url=make_phone_link(phone)))
-	row1.append(InlineKeyboardButton(text="🗺 Навигатор", url=make_maps_link(address)))
+	# Row 1: Map (phone is clickable in text)
+	row1 = [InlineKeyboardButton(text="🗺 Навигатор", url=make_maps_link(address))]
 	buttons.append(row1)
 
 	# Row 2: Delivered + Problem
@@ -99,11 +96,11 @@ def _find_stop_by_id(route: dict, stop_id: int) -> dict | None:
 # ─── Persistent keyboard button: "📦 Активный маршрут" ─────────────────────────
 
 @router.message(F.text == "📦 Активный маршрут")
-async def show_active_route(message: Message, courier_tg_id: int, order_service=None, **kwargs) -> None:
+async def show_active_route(message: Message, tg_id: int, order_service=None, **kwargs) -> None:
 	"""Показать текущую остановку активного маршрута."""
 	client: BackendClient = kwargs.get("backend_client") or BackendClient()
 
-	route = await client.fetch_active_route(tg_id=courier_tg_id)
+	route = await client.fetch_active_route(tg_id=tg_id)
 
 	if route is None:
 		await message.answer(
@@ -135,7 +132,7 @@ async def show_active_route(message: Message, courier_tg_id: int, order_service=
 # ─── Callback: "✅ Доставлено" ───────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("stop_done:"))
-async def handle_stop_done(call: CallbackQuery, courier_tg_id: int, **kwargs) -> None:
+async def handle_stop_done(call: CallbackQuery, tg_id: int, **kwargs) -> None:
 	"""Обработать завершение остановки (delivered или failed с причиной)."""
 	parts = call.data.split(":")
 	# Format: stop_done:{route_id}:{stop_id}:{result}[:{reason_key}]
@@ -153,7 +150,7 @@ async def handle_stop_done(call: CallbackQuery, courier_tg_id: int, **kwargs) ->
 		updated_route = await client.complete_route_stop(
 			route_id=route_id,
 			stop_id=stop_id,
-			tg_id=courier_tg_id,
+			tg_id=tg_id,
 			result=result,
 			failure_reason=failure_reason,
 		)
@@ -209,7 +206,7 @@ async def handle_stop_problem(call: CallbackQuery, **kwargs) -> None:
 # ─── Callback: route_start (from backend push) ───────────────────────────────
 
 @router.callback_query(F.data.startswith("route_start:"))
-async def handle_route_start_button(call: CallbackQuery, courier_tg_id: int, **kwargs) -> None:
+async def handle_route_start_button(call: CallbackQuery, tg_id: int, **kwargs) -> None:
 	"""Курьер нажал 'Начать маршрут' на уведомлении от бекенда."""
 	route_id = call.data.split(":", 1)[1]
 	client: BackendClient = kwargs.get("backend_client") or BackendClient()

@@ -17,6 +17,7 @@ import {
 type ProductFormData = {
   title: string;
   purchase_price_som: number;
+  selling_price_som: number;
   stock_quantity: number;
   unit: string;
 };
@@ -33,6 +34,7 @@ interface ProductModalProps {
 const EMPTY_VALUES: ProductFormData = {
   title: "",
   purchase_price_som: 0,
+  selling_price_som: 0,
   stock_quantity: 0,
   unit: "шт",
 };
@@ -51,6 +53,7 @@ export function ProductModal({ product, open, onClose, onSubmit }: ProductModalP
         ? {
             title: product.title,
             purchase_price_som: product.purchase_price_som,
+            selling_price_som: product.selling_price_som,
             stock_quantity: product.stock_quantity,
             unit: product.unit,
           }
@@ -76,6 +79,14 @@ export function ProductModal({ product, open, onClose, onSubmit }: ProductModalP
       nextErrors.purchase_price_som = "Введите целое число";
     } else if (nextValues.purchase_price_som < 0) {
       nextErrors.purchase_price_som = "Цена не может быть отрицательной";
+    }
+    
+    if (!Number.isFinite(nextValues.selling_price_som)) {
+      nextErrors.selling_price_som = "Введите число";
+    } else if (!Number.isInteger(nextValues.selling_price_som)) {
+      nextErrors.selling_price_som = "Введите целое число";
+    } else if (nextValues.selling_price_som < 0) {
+      nextErrors.selling_price_som = "Цена не может быть отрицательной";
     }
 
     if (!Number.isFinite(nextValues.stock_quantity)) {
@@ -105,6 +116,7 @@ export function ProductModal({ product, open, onClose, onSubmit }: ProductModalP
       await onSubmit({
         title: values.title.trim(),
         purchase_price_som: values.purchase_price_som,
+        selling_price_som: values.selling_price_som,
         stock_quantity: values.stock_quantity,
         unit: values.unit.trim(),
       });
@@ -144,20 +156,38 @@ export function ProductModal({ product, open, onClose, onSubmit }: ProductModalP
             {errors.title && <p className="text-xs text-destructive">{errors.title}</p>}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="purchase_price_som">Цена (сом)</Label>
-            <Input
-              id="purchase_price_som"
-              type="number"
-              min={0}
-              placeholder="0"
-              className="h-10"
-              value={Number.isFinite(values.purchase_price_som) ? String(values.purchase_price_som) : ""}
-              onChange={(e) => updateField("purchase_price_som", Number(e.target.value))}
-            />
-            {errors.purchase_price_som && (
-              <p className="text-xs text-destructive">{errors.purchase_price_som}</p>
-            )}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="purchase_price_som">Цена закупки (сом)</Label>
+              <Input
+                id="purchase_price_som"
+                type="number"
+                min={0}
+                placeholder="0"
+                className="h-10"
+                value={Number.isFinite(values.purchase_price_som) ? String(values.purchase_price_som) : ""}
+                onChange={(e) => updateField("purchase_price_som", Number(e.target.value))}
+              />
+              {errors.purchase_price_som && (
+                <p className="text-xs text-destructive">{errors.purchase_price_som}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="selling_price_som">Цена продажи (сом)</Label>
+              <Input
+                id="selling_price_som"
+                type="number"
+                min={0}
+                placeholder="0"
+                className="h-10"
+                value={Number.isFinite(values.selling_price_som) ? String(values.selling_price_som) : ""}
+                onChange={(e) => updateField("selling_price_som", Number(e.target.value))}
+              />
+              {errors.selling_price_som && (
+                <p className="text-xs text-destructive">{errors.selling_price_som}</p>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

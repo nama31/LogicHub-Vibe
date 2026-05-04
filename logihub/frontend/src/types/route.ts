@@ -1,6 +1,6 @@
 // Route type definitions
 
-export type RouteStatus = "draft" | "active" | "completed" | "cancelled";
+export type RouteStatus = "pending" | "draft" | "active" | "completed" | "cancelled";
 
 export interface RouteCourier {
   id: string;

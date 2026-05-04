@@ -10,6 +10,7 @@ import { Plus, Map, CheckCircle, Clock, AlertCircle, XCircle, ChevronRight } fro
 import { cn } from "@/lib/utils";
 
 const STATUS_CONFIG: Record<RouteStatus, { label: string; icon: React.ElementType; className: string }> = {
+  pending: { label: "Проверка", icon: AlertCircle, className: "bg-amber-100 text-amber-700" },
   draft: { label: "Черновик", icon: Clock, className: "bg-beige/60 text-ocean" },
   active: { label: "Активный", icon: Map, className: "bg-blue-100 text-blue-700" },
   completed: { label: "Завершён", icon: CheckCircle, className: "bg-emerald-100 text-emerald-700" },
@@ -108,6 +109,7 @@ function EmptyState() {
 
 const STATUS_FILTERS: { label: string; value: string | undefined }[] = [
   { label: "Все", value: undefined },
+  { label: "На проверке", value: "pending" },
   { label: "Черновики", value: "draft" },
   { label: "Активные", value: "active" },
   { label: "Завершённые", value: "completed" },

@@ -10,8 +10,11 @@ from urllib.parse import urlencode
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
+import httpx
+
 from aiogram import Bot
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from sqlalchemy.orm import selectinload
 from core.config import settings
 from models.order import Order
 
@@ -154,4 +157,128 @@ def _build_courier_notification(order: Order) -> str:
         f"📍 <b>Адрес:</b> {address}\n"
         f"📝 <b>Комментарий:</b> {note}\n\n"
         "👇 <i>Нажмите кнопку ниже, чтобы изменить статус.</i>"
+    )
+
+
+async def notify_customer_order_dispatched(
+    order: Order, 
+    courier, 
+    product, 
+    customer_tg_id: int | None = None
+) -> None:
+    """Уведомить клиента (Telegram и/или WhatsApp) о том, что заказ в пути."""
+    
+    order_id_short = str(order.id)[:8]
+    customer_name = order.customer_name or "уважаемый клиент"
+    product_title = getattr(product, "title", "товар")
+    courier_name = getattr(courier, "name", "курьер")
+    courier_phone = getattr(courier, "phone", "не указан")
+
+    message = (
+        f"🚚 <b>Ваш заказ в пути!</b>\n\n"
+        f"🛒 <b>Товар:</b> {product_title}\n"
+        f"👤 <b>Курьер:</b> {courier_name}\n"
+        f"📞 <b>Телефон курьера:</b> {courier_phone}\n\n"
+        "Ожидайте доставку в ближайшее время!"
+    )
+
+    # 1. Telegram notification (if tg_id is known)
+    if customer_tg_id and settings.telegram_bot_token:
+        bot = Bot(token=settings.telegram_bot_token)
+        try:
+            await bot.send_message(
+                chat_id=customer_tg_id,
+                text=message,
+                parse_mode="HTML"
+            )
+            logger.info("✅ Telegram dispatch notification sent to customer %s", customer_tg_id)
+        except Exception as e:
+            logger.error("❌ Failed to send Telegram notification to customer %s: %s", customer_tg_id, e)
+        finally:
+            await bot.session.close()
+
+    # 2. WhatsApp notification (legacy/backup)
+    if order.customer_phone and settings.whatsapp_api_url and settings.whatsapp_api_token:
+        wa_message = (
+            f"Здравствуйте, {customer_name}! Ваш заказ ({product_title}) в пути. "
+            f"Курьер: {courier_name}, Телефон: {courier_phone}. Ожидайте доставку!"
+        )
+        payload = {
+            "phone": order.customer_phone,
+            "text": wa_message
+        }
+        headers = {
+            "Authorization": f"Bearer {settings.whatsapp_api_token}",
+            "Content-Type": "application/json"
+        }
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    settings.whatsapp_api_url,
+                    json=payload,
+                    headers=headers,
+                    timeout=10.0
+                )
+                response.raise_for_status()
+                logger.info(f"✅ WhatsApp message successfully sent to {order.customer_phone}.")
+        except Exception as e:
+            logger.error(f"❌ Failed to send WhatsApp to {order.customer_phone}: {str(e)}")
+    elif not customer_tg_id:
+        logger.warning("Order %s has no customer_phone and no customer_tg_id; no notification sent", order_id_short)
+
+
+async def notify_admin_new_client_order(client_name: str, order_id: int, admin_tg_id: int) -> None:
+    """Уведомить администратора о новом заказе от клиента."""
+    if not settings.telegram_bot_token:
+        logger.warning("Telegram bot token not configured; skipping admin notification")
+        return
+
+    message = f"🔔 <b>Новый заказ от клиента {client_name}!</b>\n\n🆔 <b>Заказ:</b> #{order_id}"
+
+    bot = Bot(token=settings.telegram_bot_token)
+    try:
+        await bot.send_message(
+            chat_id=admin_tg_id,
+            text=message,
+            parse_mode="HTML"
+        )
+        logger.info("Admin notification sent for order %s", order_id)
+    except Exception as exc:
+        logger.error("Failed to send admin notification: %s", exc, exc_info=True)
+    finally:
+        await bot.session.close()
+
+
+async def notify_client_dispatch(order_id: int, courier_name: str, courier_phone: str, db: AsyncSession) -> None:
+    """Хелпер для уведомления клиента при переходе заказа в in_transit (для маршрутов)."""
+    from sqlalchemy import select
+    from models.order import Order
+    from models.user import User
+
+    # Fetch order and product
+    stmt = select(Order).options(selectinload(Order.product)).where(Order.id == order_id)
+    result = await db.execute(stmt)
+    order = result.scalar_one_or_none()
+    if not order:
+        return
+
+    # Find client tg_id
+    customer_tg_id = None
+    if order.customer_phone:
+        client_user = await db.scalar(
+            select(User).where(User.phone == order.customer_phone, User.role == "client")
+        )
+        customer_tg_id = client_user.tg_id if client_user else None
+
+    # Dummy courier object for compatibility
+    class MockCourier:
+        def __init__(self, name, phone):
+            self.name = name
+            self.phone = phone
+
+    await notify_customer_order_dispatched(
+        order, 
+        MockCourier(courier_name, courier_phone), 
+        order.product, 
+        customer_tg_id
     )

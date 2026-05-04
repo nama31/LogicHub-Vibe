@@ -1,4 +1,4 @@
-export type OrderStatus = "new" | "assigned" | "in_transit" | "delivered" | "failed";
+export type OrderStatus = "pending" | "new" | "assigned" | "in_transit" | "delivered" | "failed";
 
 export interface Order {
   id: number;
@@ -30,9 +30,16 @@ export interface OrderCreate {
 }
 
 export interface OrderUpdate {
-  delivery_address?: string;
-  note?: string;
+  product_id?: string;
+  courier_id?: string;
+  quantity?: number;
+  sale_price_som?: number;
   courier_fee_som?: number;
+  customer_name?: string;
+  customer_phone?: string;
+  delivery_address?: string;
+  status?: OrderStatus;
+  note?: string;
 }
 
 export interface OrderListOut {

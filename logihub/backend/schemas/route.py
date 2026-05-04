@@ -6,7 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-RouteStatus = Literal["draft", "active", "completed", "cancelled"]
+RouteStatus = Literal["pending", "draft", "active", "completed", "cancelled"]
 
 
 # ─────────────────────────────────────────────────────

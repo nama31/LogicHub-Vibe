@@ -17,18 +17,18 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useUsers } from "@/hooks/useUsers";
-import { useOrders } from "@/hooks/useOrders";
+import { useRoutes } from "@/hooks/useRoutes";
 
-interface AssignModalProps {
-  orderId: number | string;
+interface AssignCourierModalProps {
+  routeId: string;
   isOpen: boolean;
   onClose: () => void;
   onAssigned?: () => void;
 }
 
-export function AssignModal({ orderId, isOpen, onClose, onAssigned }: AssignModalProps) {
+export function AssignCourierModal({ routeId, isOpen, onClose, onAssigned }: AssignCourierModalProps) {
   const { users: couriers } = useUsers({ role: "courier" });
-  const { assignCourier } = useOrders();
+  const { updateRoute } = useRoutes();
   const [selectedCourierId, setSelectedCourierId] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -36,11 +36,11 @@ export function AssignModal({ orderId, isOpen, onClose, onAssigned }: AssignModa
     if (!selectedCourierId) return;
     setIsSubmitting(true);
     try {
-      await assignCourier(orderId, selectedCourierId);
+      await updateRoute(routeId, { courier_id: selectedCourierId });
       onAssigned?.();
       onClose();
     } catch (error) {
-      console.error("Failed to assign courier:", error);
+      console.error("Failed to assign courier to route:", error);
     } finally {
       setIsSubmitting(false);
     }
@@ -51,12 +51,12 @@ export function AssignModal({ orderId, isOpen, onClose, onAssigned }: AssignModa
       <DialogContent className="sm:max-w-[425px] bg-card border-beige rounded-3xl p-0 overflow-hidden shadow-2xl">
         <div className="p-6">
           <DialogHeader className="mb-4">
-            <DialogTitle className="text-2xl font-bold text-ocean">Назначить курьера</DialogTitle>
+            <DialogTitle className="text-2xl font-bold text-ocean">Назначить курьера на маршрут</DialogTitle>
           </DialogHeader>
           
           <div className="space-y-6">
             <p className="text-muted-foreground leading-relaxed">
-              Выберите ответственного курьера для выполнения заказа <span className="font-bold text-ocean">#{orderId}</span>.
+              Выберите ответственного курьера для выполнения этого маршрута.
             </p>
             
             <div className="space-y-3">

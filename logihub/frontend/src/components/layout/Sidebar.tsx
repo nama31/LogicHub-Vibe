@@ -17,7 +17,7 @@ const navItems = [
   { label: "Заказы", href: "/orders", icon: ShoppingCart },
   { label: "Маршруты", href: "/routes", icon: Map },
   { label: "Инвентарь", href: "/products", icon: Package },
-  { label: "Курьеры", href: "/couriers", icon: Users },
+  { label: "Пользователи", href: "/couriers", icon: Users },
   { label: "Аналитика", href: "/analytics", icon: BarChart3 },
 ];
 

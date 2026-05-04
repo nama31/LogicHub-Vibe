@@ -7,7 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 
-UserRole = Literal["admin", "courier"]
+UserRole = Literal["admin", "courier", "client"]
 
 
 class UserCreate(BaseModel):

@@ -15,8 +15,9 @@ from bot.handlers.registration import router as registration_router
 from bot.handlers.routes import router as routes_router
 from bot.handlers.start import router as start_router
 from bot.handlers.status_update import router as status_router
-from bot.middlewares.courier_auth import CourierAuthMiddleware
-from bot.services.auth_service import CourierAuthService
+from bot.handlers.client_order import router as client_order_router
+from bot.middlewares.role_auth import RoleAuthMiddleware
+from bot.services.auth_service import BotAuthService
 from bot.services.order_service import BotOrderService
 
 
@@ -29,7 +30,7 @@ async def main() -> None:
 		raise RuntimeError("BOT_SECRET is required to start the bot")
 
 	backend_client = BackendClient()
-	auth_service = CourierAuthService(backend_client)
+	auth_service = BotAuthService(backend_client)
 	order_service = BotOrderService(backend_client)
 
 	bot = Bot(token=settings.telegram_bot_token)
@@ -39,23 +40,24 @@ async def main() -> None:
 	dp["auth_service"] = auth_service
 	dp["backend_client"] = backend_client  # Available to route handlers
 
-	middleware = CourierAuthMiddleware(auth_service)
+	middleware = RoleAuthMiddleware(auth_service)
 	dp.message.middleware(middleware)
 	dp.callback_query.middleware(middleware)
 
 	dp.include_router(start_router)
 	dp.include_router(registration_router)
 	dp.include_router(help_router)
-	dp.include_router(routes_router)     # NEW: route-based UX (registered before old handlers)
+	dp.include_router(routes_router)
 	dp.include_router(my_orders_router)
 	dp.include_router(new_orders_router)
 	dp.include_router(status_router)
+	dp.include_router(client_order_router)
 
 	# Резильентный запуск: ждем бекенд
 	max_retries = 10
 	for i in range(max_retries):
 		try:
-			await auth_service.refresh()
+			await auth_service.check_connection()
 			print("✅ Бот успешно подключен к бекенду")
 			break
 		except Exception as e:
