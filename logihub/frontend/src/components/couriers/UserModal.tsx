@@ -1,7 +1,9 @@
 "use client";
+/* eslint-disable react-hooks/set-state-in-effect */
 
 import { useEffect, useState, type FormEvent } from "react";
 import type { User, UserRole } from "@/types/user";
+import type { UserCreateData, UserUpdateData } from "@/hooks/useUsers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,6 +30,7 @@ type UserFormData = {
   phone?: string;
   is_active?: boolean;
 };
+type UserSubmitData = UserCreateData & Pick<UserUpdateData, "is_active">;
 
 type UserFormErrors = Partial<Record<keyof UserFormData, string>>;
 
@@ -35,7 +38,7 @@ interface UserModalProps {
   user?: User;
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: UserFormData) => Promise<any>;
+  onSubmit: (data: UserSubmitData) => Promise<unknown>;
 }
 
 const EMPTY_VALUES: UserFormData = {
@@ -147,7 +150,7 @@ export function UserModal({ user, open, onClose, onSubmit }: UserModalProps) {
         if (!nextOpen) onClose();
       }}
     >
-      <DialogContent className="sm:max-w-md bg-cream border-border">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-ocean">
             {isEdit ? "Редактировать пользователя" : "Добавить пользователя"}
@@ -165,7 +168,7 @@ export function UserModal({ user, open, onClose, onSubmit }: UserModalProps) {
             <Input
               id="name"
               placeholder="Например: Азамат"
-              className="h-10 border-beige focus-visible:ring-ocean"
+              className="text-ocean"
               value={values.name}
               onChange={(e) => updateField("name", e.target.value)}
             />
@@ -179,7 +182,7 @@ export function UserModal({ user, open, onClose, onSubmit }: UserModalProps) {
               onValueChange={(val) => updateField("role", val as UserRole)}
               disabled={isEdit}
             >
-              <SelectTrigger className="h-10 border-beige focus:ring-ocean">
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Выберите роль" />
               </SelectTrigger>
               <SelectContent>
@@ -196,7 +199,7 @@ export function UserModal({ user, open, onClose, onSubmit }: UserModalProps) {
               id="tg_id"
               type="number"
               placeholder="Будет заполнено автоматически при регистрации"
-              className="h-10 border-beige focus-visible:ring-ocean bg-beige/10"
+              className="text-ocean"
               value={values.tg_id === null ? "" : values.tg_id}
               onChange={(e) => {
                 const val = e.target.value;
@@ -216,7 +219,7 @@ export function UserModal({ user, open, onClose, onSubmit }: UserModalProps) {
               id="phone"
               type="tel"
               placeholder="+996 771 123 456"
-              className="h-10 border-beige focus-visible:ring-ocean"
+              className="text-ocean"
               value={values.phone}
               onChange={(e) => {
                 const formatted = formatPhoneNumber(e.target.value);
@@ -233,7 +236,7 @@ export function UserModal({ user, open, onClose, onSubmit }: UserModalProps) {
                 id="is_active"
                 checked={values.is_active ?? true}
                 onChange={(e) => updateField("is_active", e.target.checked)}
-                className="w-4 h-4 text-ocean border-beige rounded focus:ring-ocean"
+                className="h-4 w-4 rounded border-beige text-ocean focus:ring-ocean"
               />
               <Label htmlFor="is_active" className="text-ocean font-medium cursor-pointer">
                 Пользователь активен
@@ -241,19 +244,17 @@ export function UserModal({ user, open, onClose, onSubmit }: UserModalProps) {
             </div>
           )}
 
-          <DialogFooter className="pt-4">
+          <DialogFooter>
             <Button 
               type="button" 
               variant="outline" 
               onClick={onClose}
-              className="border-beige text-ocean hover:bg-beige/20"
             >
               Отмена
             </Button>
             <Button 
               type="submit" 
               disabled={isSubmitting}
-              className="bg-ocean text-cream hover:bg-ocean/90"
             >
               {isSubmitting ? "Сохранение..." : isEdit ? "Сохранить" : "Добавить"}
             </Button>

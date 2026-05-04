@@ -7,6 +7,7 @@ import { useOrders } from "@/hooks/useOrders";
 import { useUsers } from "@/hooks/useUsers";
 import { useRoutes } from "@/hooks/useRoutes";
 import type { Order } from "@/types/order";
+import type { ApiError } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,18 +45,18 @@ function OrderPickerRow({
         "w-full text-left flex items-center gap-3 p-3 rounded-xl border transition-all",
         isSelected
           ? "border-ocean bg-ocean/5 cursor-pointer"
-          : "border-beige/40 hover:border-ocean/30 hover:bg-white/80"
+          : "border-beige hover:border-ocean/30 hover:bg-beige/20"
       )}
     >
       <div
         className={cn(
-          "w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all",
+          "w-5 h-5 rounded-xl border-2 flex items-center justify-center shrink-0 transition-all",
           isSelected ? "border-ocean bg-ocean" : "border-beige"
         )}
       >
         {isSelected && (
           <svg viewBox="0 0 12 9" fill="none" className="w-3 h-3">
-            <path d="M1 4l3 3 7-7" stroke="#EEE8DF" strokeWidth="2" strokeLinecap="round" />
+            <path d="M1 4l3 3 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
           </svg>
         )}
       </div>
@@ -64,7 +65,7 @@ function OrderPickerRow({
           #{order.id} — {order.delivery_address}
         </p>
         <p className="text-xs text-muted-foreground truncate">
-          {order.customer_name ?? "Без имени"} · {(order as any).product?.title ?? "Товар"}
+          {order.customer_name ?? "Без имени"} · {order.product?.title ?? "Товар"}
         </p>
       </div>
     </button>
@@ -87,7 +88,7 @@ function StopSequenceItem({
   onRemove: () => void;
 }) {
   return (
-    <div className="flex items-center gap-3 p-3 bg-white/80 border border-beige/40 rounded-xl">
+    <div className="flex items-center gap-3 p-3 bg-card border border-beige rounded-xl">
       <GripVertical size={16} className="text-beige shrink-0" />
       <div className="w-6 h-6 rounded-full bg-ocean text-cream text-xs font-bold flex items-center justify-center shrink-0">
         {index + 1}
@@ -101,7 +102,7 @@ function StopSequenceItem({
           type="button"
           onClick={onMoveUp}
           disabled={index === 0}
-          className="p-1 rounded-lg hover:bg-beige/40 disabled:opacity-30 transition-all"
+          className="p-1 rounded-xl hover:bg-beige/40 disabled:opacity-30 transition-all"
         >
           <ArrowUp size={14} />
         </button>
@@ -109,14 +110,14 @@ function StopSequenceItem({
           type="button"
           onClick={onMoveDown}
           disabled={index === total - 1}
-          className="p-1 rounded-lg hover:bg-beige/40 disabled:opacity-30 transition-all"
+          className="p-1 rounded-xl hover:bg-beige/40 disabled:opacity-30 transition-all"
         >
           <ArrowDown size={14} />
         </button>
         <button
           type="button"
           onClick={onRemove}
-          className="p-1 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600 transition-all"
+          className="p-1 rounded-xl text-ocean hover:bg-ocean/10 transition-all"
         >
           <X size={14} />
         </button>
@@ -182,8 +183,9 @@ export default function NewRoutePage() {
         order_ids: selectedStops.map((s) => s.order.id),
       });
       router.push(`/routes/${route.id}`);
-    } catch (err: any) {
-      setError(err?.message ?? "Ошибка создания маршрута");
+    } catch (err) {
+      const apiError = err as Partial<ApiError>;
+      setError(apiError.message ?? "Ошибка создания маршрута");
     } finally {
       setSubmitting(false);
     }
@@ -194,12 +196,12 @@ export default function NewRoutePage() {
       {/* Header */}
       <div className="flex items-center gap-4">
         <Link href="/routes">
-          <Button variant="ghost" size="icon" className="rounded-xl hover:bg-beige/40">
+          <Button variant="ghost" size="icon">
             <ArrowLeft size={18} />
           </Button>
         </Link>
         <div>
-          <h1 className="text-3xl font-bold text-[#2C365A] tracking-tight">Новый маршрут</h1>
+          <h1 className="text-3xl font-bold text-ocean tracking-tight">Новый маршрут</h1>
           <p className="text-muted-foreground text-sm mt-0.5">
             Выберите заказы и определите порядок остановок
           </p>
@@ -211,7 +213,7 @@ export default function NewRoutePage() {
           {/* Left: Settings + Order picker */}
           <div className="space-y-5">
             {/* Route settings */}
-            <div className="bg-white/70 border border-beige/40 rounded-2xl p-5 space-y-4">
+            <div className="bg-card border border-beige rounded-2xl p-5 space-y-4 shadow-sm">
               <h2 className="font-bold text-ocean">Настройки маршрута</h2>
 
               <div className="space-y-2">
@@ -221,7 +223,6 @@ export default function NewRoutePage() {
                   placeholder="Например: Утренний рейс"
                   value={label}
                   onChange={(e) => setLabel(e.target.value)}
-                  className="rounded-xl border-beige focus:border-ocean"
                 />
               </div>
 
@@ -231,7 +232,7 @@ export default function NewRoutePage() {
                   id="courier-select"
                   value={courierId}
                   onChange={(e) => setCourierId(e.target.value)}
-                  className="w-full h-10 px-3 rounded-xl border border-beige bg-white text-sm focus:outline-none focus:border-ocean transition-colors"
+                  className="w-full h-11 px-3 rounded-xl border border-beige bg-background text-sm text-ocean shadow-sm focus:outline-none focus:border-ocean focus:ring-3 focus:ring-ocean/20 transition-colors"
                   disabled={couriersLoading}
                 >
                   <option value="">Выберите курьера...</option>
@@ -245,7 +246,7 @@ export default function NewRoutePage() {
             </div>
 
             {/* Order picker */}
-            <div className="bg-white/70 border border-beige/40 rounded-2xl p-5">
+            <div className="bg-card border border-beige rounded-2xl p-5 shadow-sm">
               <h2 className="font-bold text-ocean mb-3">
                 Нераспределённые заказы
                 {orders.length > 0 && (
@@ -281,7 +282,7 @@ export default function NewRoutePage() {
 
           {/* Right: Stop sequence */}
           <div className="space-y-5">
-            <div className="bg-white/70 border border-beige/40 rounded-2xl p-5">
+            <div className="bg-card border border-beige rounded-2xl p-5 shadow-sm">
               <h2 className="font-bold text-ocean mb-3">
                 Порядок остановок
                 {selectedStops.length > 0 && (
@@ -317,7 +318,7 @@ export default function NewRoutePage() {
 
             {/* Error */}
             {error && (
-              <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 px-4 py-3 rounded-xl">
+              <div className="flex items-center gap-2 text-sm text-ocean bg-card border border-beige px-4 py-3 rounded-xl shadow-sm">
                 <AlertCircle size={16} />
                 {error}
               </div>
@@ -327,7 +328,7 @@ export default function NewRoutePage() {
             <Button
               type="submit"
               disabled={submitting || selectedStops.length === 0 || !courierId}
-              className="w-full bg-[#2C365A] text-[#EEE8DF] hover:bg-[#2C365A]/90 rounded-xl h-12 font-bold text-base shadow-lg transition-all active:scale-95 disabled:opacity-50 gap-2"
+              className="w-full h-12 gap-2 text-base"
             >
               {submitting ? (
                 <>

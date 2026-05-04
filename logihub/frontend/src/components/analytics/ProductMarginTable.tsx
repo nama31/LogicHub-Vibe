@@ -1,6 +1,5 @@
 import type { ProductMargin } from "@/types/analytics";
 import { Package, TrendingUp, TrendingDown, Minus } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 const formatMoney = (val: number = 0) => val.toLocaleString("ru-RU") + " сом";
 
@@ -27,7 +26,7 @@ export function ProductMarginTable({ data }: { data: ProductMargin[] }) {
             return (
               <tr key={p.product_id} className="border-b border-beige/20 last:border-0 hover:bg-beige/5">
                 <td className="px-4 py-3 font-medium text-ocean flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-beige/20 flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-xl bg-beige/20 flex items-center justify-center shrink-0">
                     <Package size={14} className="text-ocean" />
                   </div>
                   <span className="truncate max-w-[200px]" title={p.title}>{p.title}</span>
@@ -37,12 +36,12 @@ export function ProductMarginTable({ data }: { data: ProductMargin[] }) {
                 <td className="px-4 py-3 text-right text-muted-foreground">{formatMoney(p.cost_som)}</td>
                 <td className="px-4 py-3 text-right font-bold">
                   <div className="flex flex-col items-end">
-                    <span className={margin > 40 ? "text-emerald-600" : margin < 20 ? "text-amber-600" : "text-ocean"}>
+                    <span className="text-ocean">
                       {formatMoney(p.profit_som)}
                     </span>
                     <div className="flex items-center gap-1 text-xs">
-                      {margin > 40 ? <TrendingUp size={10} className="text-emerald-500" /> : margin < 20 ? <TrendingDown size={10} className="text-amber-500" /> : <Minus size={10} className="text-muted-foreground" />}
-                      <span className={margin > 40 ? "text-emerald-500" : margin < 20 ? "text-amber-500" : "text-muted-foreground"}>
+                      {margin > 40 ? <TrendingUp size={10} className="text-ocean" /> : margin < 20 ? <TrendingDown size={10} className="text-ocean" /> : <Minus size={10} className="text-muted-foreground" />}
+                      <span className="text-muted-foreground">
                         {margin}%
                       </span>
                     </div>

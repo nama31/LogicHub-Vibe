@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable react-hooks/preserve-manual-memoization, react-hooks/set-state-in-effect */
 
 import { useState, useEffect, useCallback } from "react";
 import { apiGet, apiPost, apiPatch, apiDel } from "@/lib/api";

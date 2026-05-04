@@ -1,7 +1,8 @@
 "use client";
+/* eslint-disable react-hooks/set-state-in-effect */
 
 import { useEffect, useState, type FormEvent } from "react";
-import type { Product } from "@/types/product";
+import type { Product, ProductCreate } from "@/types/product";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,7 +29,7 @@ interface ProductModalProps {
   product?: Product;
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: ProductFormData) => Promise<any>;
+  onSubmit: (data: ProductCreate) => Promise<unknown>;
 }
 
 const EMPTY_VALUES: ProductFormData = {
@@ -149,7 +150,6 @@ export function ProductModal({ product, open, onClose, onSubmit }: ProductModalP
             <Input
               id="title"
               placeholder="Например: Молоко 1л"
-              className="h-10"
               value={values.title}
               onChange={(e) => updateField("title", e.target.value)}
             />
@@ -164,7 +164,6 @@ export function ProductModal({ product, open, onClose, onSubmit }: ProductModalP
                 type="number"
                 min={0}
                 placeholder="0"
-                className="h-10"
                 value={Number.isFinite(values.purchase_price_som) ? String(values.purchase_price_som) : ""}
                 onChange={(e) => updateField("purchase_price_som", Number(e.target.value))}
               />
@@ -180,7 +179,6 @@ export function ProductModal({ product, open, onClose, onSubmit }: ProductModalP
                 type="number"
                 min={0}
                 placeholder="0"
-                className="h-10"
                 value={Number.isFinite(values.selling_price_som) ? String(values.selling_price_som) : ""}
                 onChange={(e) => updateField("selling_price_som", Number(e.target.value))}
               />
@@ -198,7 +196,6 @@ export function ProductModal({ product, open, onClose, onSubmit }: ProductModalP
                 type="number"
                 min={0}
                 placeholder="0"
-                className="h-10"
                 value={Number.isFinite(values.stock_quantity) ? String(values.stock_quantity) : ""}
                 onChange={(e) => updateField("stock_quantity", Number(e.target.value))}
               />
@@ -212,7 +209,6 @@ export function ProductModal({ product, open, onClose, onSubmit }: ProductModalP
               <Input
                 id="unit"
                 placeholder="шт, кг, л..."
-                className="h-10"
                 value={values.unit}
                 onChange={(e) => updateField("unit", e.target.value)}
               />

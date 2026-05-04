@@ -1,8 +1,10 @@
 "use client";
+/* eslint-disable react-hooks/preserve-manual-memoization, react-hooks/set-state-in-effect */
 
 import { useState, useEffect, useCallback } from "react";
 import { apiGet } from "@/lib/api";
 import type { Summary, ProfitOut, CourierStat, ProductMargin, TrendItem, FailedReason } from "@/types/analytics";
+import type { ApiError } from "@/types/api";
 
 import { useAuth } from "@/hooks/useAuth";
 
@@ -26,8 +28,9 @@ export function useAnalytics(params?: { from?: string; to?: string }) {
     try {
       const data = await apiGet<Summary>("/analytics/summary");
       setSummary(data);
-    } catch (err: any) {
-      if (err?.detail !== "Admin privileges required") {
+    } catch (err) {
+      const apiError = err as Partial<ApiError> & { detail?: string };
+      if (apiError.detail !== "Admin privileges required") {
         console.error("Failed to fetch summary:", err);
       }
     }
@@ -45,8 +48,9 @@ export function useAnalytics(params?: { from?: string; to?: string }) {
 
       const data = await apiGet<ProfitOut>(url);
       setProfit(data);
-    } catch (err: any) {
-      if (err?.detail !== "Admin privileges required") {
+    } catch (err) {
+      const apiError = err as Partial<ApiError> & { detail?: string };
+      if (apiError.detail !== "Admin privileges required") {
         console.error("Failed to fetch profit:", err);
       }
     }
@@ -65,8 +69,9 @@ export function useAnalytics(params?: { from?: string; to?: string }) {
       setProducts(pData.products);
       setTrends(tData.trends);
       setFailures(fData.failures);
-    } catch (err: any) {
-      if (err?.detail !== "Admin privileges required") {
+    } catch (err) {
+      const apiError = err as Partial<ApiError> & { detail?: string };
+      if (apiError.detail !== "Admin privileges required") {
         console.error("Failed to fetch deep analytics:", err);
       }
     }

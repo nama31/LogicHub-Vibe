@@ -51,7 +51,7 @@ export default function LoginPage() {
         </p>
       </div>
 
-      <Card className="w-full max-w-sm shadow-lg">
+      <Card className="w-full max-w-sm shadow-md">
         <CardHeader className="text-center">
           <CardTitle className="text-xl">Вход в систему</CardTitle>
           <CardDescription>
@@ -70,7 +70,6 @@ export default function LoginPage() {
                 onChange={(e) => setUsername(e.target.value)}
                 required
                 autoComplete="username"
-                className="h-10"
               />
             </div>
 
@@ -84,7 +83,6 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="current-password"
-                className="h-10"
               />
             </div>
 
@@ -95,7 +93,7 @@ export default function LoginPage() {
             <Button
               type="submit"
               disabled={submitting}
-              className="h-10 w-full text-sm font-semibold"
+              className="w-full text-sm font-semibold"
             >
               {submitting ? "Вход..." : "Войти"}
             </Button>

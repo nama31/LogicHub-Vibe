@@ -3,7 +3,7 @@
 import { OrderTable } from "@/components/orders/OrderTable";
 import { useOrders } from "@/hooks/useOrders";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Filter } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { AssignModal } from "@/components/orders/AssignModal";
@@ -28,10 +28,10 @@ export default function OrdersPage() {
   });
 
   return (
-    <div className="space-y-8 p-1 sm:p-4">
+    <div className="space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-black text-ocean tracking-tight">Заказы</h1>
+          <h1 className="text-3xl font-bold text-ocean tracking-tight">Заказы</h1>
           <p className="text-muted-foreground mt-1 text-sm sm:text-base">Управление доставками и отслеживание прибыли.</p>
         </div>
         <div className="flex gap-2">
@@ -40,30 +40,30 @@ export default function OrdersPage() {
               try {
                 await exportOrders();
                 toast.success("Экспорт успешно завершен");
-              } catch (err) {
+              } catch {
                 toast.error("Ошибка при экспорте заказов");
               }
             }}
             variant="outline"
-            className="border-beige text-ocean hover:bg-beige/20 h-12 px-4 rounded-xl font-semibold transition-all active:scale-95"
+            className="h-11 px-4"
           >
             Экспорт CSV
           </Button>
           <Button
             onClick={() => router.push("/orders/new")}
-            className="bg-ocean text-cream hover:bg-ocean/90 h-12 px-6 rounded-xl font-bold shadow-lg shadow-ocean/20 transition-all active:scale-95"
+            className="h-11 px-6"
           >
             <Plus className="mr-2 size-5" /> Новый заказ
           </Button>
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4 items-center">
+      <div className="flex flex-col sm:flex-row gap-4 items-center rounded-2xl border border-beige bg-card p-4 shadow-sm">
         <div className="relative flex-1 w-full">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
             placeholder="Поиск по ID или адресу..."
-            className="pl-11 h-12 bg-card border-beige rounded-xl focus-visible:ring-ocean/10"
+            className="pl-11"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -72,7 +72,7 @@ export default function OrdersPage() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="h-12 border border-beige bg-cream rounded-xl px-4 text-ocean font-semibold focus:ring-ocean/10 outline-none cursor-pointer min-w-[140px]"
+            className="h-11 min-w-[160px] cursor-pointer rounded-xl border border-beige bg-background px-4 font-semibold text-ocean outline-none focus:border-ocean focus:ring-3 focus:ring-ocean/20"
           >
             <option value="" className="bg-cream">Все статусы</option>
             <option value="pending" className="bg-cream">На проверке</option>

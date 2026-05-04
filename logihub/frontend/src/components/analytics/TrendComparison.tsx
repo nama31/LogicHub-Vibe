@@ -15,7 +15,7 @@ import type { TrendItem } from "@/types/analytics";
 export function TrendComparison({ data }: { data: TrendItem[] }) {
   if (!data || data.length === 0) {
     return (
-      <div className="h-[300px] flex items-center justify-center text-muted-foreground bg-white/30 rounded-3xl border border-dashed border-beige">
+      <div className="h-[300px] flex items-center justify-center text-muted-foreground bg-card rounded-2xl border border-dashed border-beige">
         Нет данных для отображения трендов
       </div>
     );
@@ -53,7 +53,7 @@ export function TrendComparison({ data }: { data: TrendItem[] }) {
             orientation="right"
             axisLine={false}
             tickLine={false}
-            tick={{ fill: "#10b981", fontSize: 12, fontWeight: 500 }}
+            tick={{ fill: "#C4BCB0", fontSize: 12, fontWeight: 500 }}
           />
           <Tooltip
             contentStyle={{
@@ -82,9 +82,9 @@ export function TrendComparison({ data }: { data: TrendItem[] }) {
             type="monotone"
             dataKey="profit_som"
             name="Прибыль (сом)"
-            stroke="#10b981"
+            stroke="#C4BCB0"
             strokeWidth={3}
-            dot={{ r: 3, fill: "#10b981", strokeWidth: 0 }}
+            dot={{ r: 3, fill: "#C4BCB0", strokeWidth: 0 }}
             activeDot={{ r: 6 }}
             animationDuration={1500}
           />

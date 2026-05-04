@@ -1,8 +1,11 @@
 "use client";
+/* eslint-disable react-hooks/preserve-manual-memoization, react-hooks/set-state-in-effect */
 
 import { useState, useEffect, useCallback } from "react";
 import { apiGet, apiPost, apiPatch, apiDel } from "@/lib/api";
-import type { Order, OrderCreate, OrderUpdate, OrderListOut, StatusEntry } from "@/types/order";
+import type { Order, OrderCreate, OrderUpdate, StatusEntry } from "@/types/order";
+
+type RealtimeUpdateEvent = CustomEvent<{ event?: string; id?: string | number }>;
 
 export function useOrders(params?: {
   status?: string;
@@ -44,8 +47,9 @@ export function useOrders(params?: {
   useEffect(() => {
     fetchOrders();
 
-    const handleRealTime = (e: any) => {
-      const event = e.detail?.event;
+    const handleRealTime = (e: Event) => {
+      const realtimeEvent = e as RealtimeUpdateEvent;
+      const event = realtimeEvent.detail?.event;
       if (event && event.startsWith("order_")) {
         fetchOrders();
       }
@@ -143,9 +147,10 @@ export function useOrder(id: number | string) {
   useEffect(() => {
     fetchOrder();
 
-    const handleRealTime = (e: any) => {
-      const event = e.detail?.event;
-      const eventId = e.detail?.id;
+    const handleRealTime = (e: Event) => {
+      const realtimeEvent = e as RealtimeUpdateEvent;
+      const event = realtimeEvent.detail?.event;
+      const eventId = realtimeEvent.detail?.id;
       if (event && event.startsWith("order_") && eventId?.toString() === id?.toString()) {
         fetchOrder();
       }

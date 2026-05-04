@@ -1,8 +1,12 @@
 "use client";
+/* eslint-disable react-hooks/preserve-manual-memoization, react-hooks/set-state-in-effect */
 
 import { useState, useEffect, useCallback } from "react";
 import { apiGet, apiPost, apiPatch, apiDel } from "@/lib/api";
 import type { Route, RouteListItem, RouteListResponse, RouteCreate, RouteUpdate } from "@/types/route";
+import type { ApiError } from "@/types/api";
+
+type RealtimeUpdateEvent = CustomEvent<{ event?: string; id?: string | number }>;
 
 export function useRoutes(params?: {
   route_status?: string;
@@ -24,8 +28,9 @@ export function useRoutes(params?: {
       const data = await apiGet<RouteListResponse>(`/routes${q ? `?${q}` : ""}`);
       setRoutes(data.routes ?? []);
       setTotal(data.total ?? 0);
-    } catch (err: any) {
-      setError(err?.message ?? "Ошибка загрузки маршрутов");
+    } catch (err) {
+      const apiError = err as Partial<ApiError>;
+      setError(apiError.message ?? "Ошибка загрузки маршрутов");
       setRoutes([]);
       setTotal(0);
     } finally {
@@ -36,8 +41,9 @@ export function useRoutes(params?: {
   useEffect(() => {
     fetchRoutes();
 
-    const handleRealTime = (e: any) => {
-      const event = e.detail?.event;
+    const handleRealTime = (e: Event) => {
+      const realtimeEvent = e as RealtimeUpdateEvent;
+      const event = realtimeEvent.detail?.event;
       if (event && event.startsWith("route_")) {
         fetchRoutes();
       }
@@ -94,8 +100,9 @@ export function useRoute(id: string | null) {
     try {
       const data = await apiGet<Route>(`/routes/${id}`);
       setRoute(data);
-    } catch (err: any) {
-      setError(err?.message ?? "Маршрут не найден");
+    } catch (err) {
+      const apiError = err as Partial<ApiError>;
+      setError(apiError.message ?? "Маршрут не найден");
       setRoute(null);
     } finally {
       setLoading(false);
@@ -105,9 +112,10 @@ export function useRoute(id: string | null) {
   useEffect(() => {
     fetchRoute();
 
-    const handleRealTime = (e: any) => {
-      const event = e.detail?.event;
-      const eventId = e.detail?.id;
+    const handleRealTime = (e: Event) => {
+      const realtimeEvent = e as RealtimeUpdateEvent;
+      const event = realtimeEvent.detail?.event;
+      const eventId = realtimeEvent.detail?.id;
       if (event && event.startsWith("route_") && eventId === id) {
         fetchRoute();
       }

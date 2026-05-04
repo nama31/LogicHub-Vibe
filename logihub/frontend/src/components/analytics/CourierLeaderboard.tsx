@@ -26,9 +26,9 @@ export function CourierLeaderboard({ data }: { data: CourierStat[] }) {
             return (
               <tr key={c.courier_id} className="border-b border-beige/20 last:border-0 hover:bg-beige/5">
                 <td className="px-4 py-3 font-medium text-ocean flex items-center gap-2">
-                  {index === 0 && <Award size={16} className="text-amber-500" />}
-                  {index === 1 && <Award size={16} className="text-slate-400" />}
-                  {index === 2 && <Award size={16} className="text-amber-700" />}
+                  {index === 0 && <Award size={16} className="text-ocean" />}
+                  {index === 1 && <Award size={16} className="text-beige" />}
+                  {index === 2 && <Award size={16} className="text-ocean/70" />}
                   {index > 2 && <span className="w-4 inline-block text-center text-muted-foreground">{index + 1}</span>}
                   {c.name}
                 </td>
@@ -36,10 +36,10 @@ export function CourierLeaderboard({ data }: { data: CourierStat[] }) {
                 <td className="px-4 py-3 text-right text-muted-foreground">{c.stops_total}</td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex items-center justify-end gap-2">
-                    <span className={successRate >= 90 ? "text-emerald-600" : successRate <= 50 && c.stops_total > 0 ? "text-red-500" : ""}>
+                    <span className="text-ocean">
                       {c.stops_delivered} ({successRate.toFixed(0)}%)
                     </span>
-                    {successRate >= 90 ? <TrendingUp size={14} className="text-emerald-500" /> : <TrendingDown size={14} className="text-red-400 opacity-0" />}
+                    {successRate >= 90 ? <TrendingUp size={14} className="text-ocean" /> : <TrendingDown size={14} className="text-ocean opacity-0" />}
                   </div>
                 </td>
                 <td className="px-4 py-3 text-right font-bold text-ocean">

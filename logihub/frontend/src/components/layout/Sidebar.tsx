@@ -30,13 +30,13 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="flex h-screen w-60 shrink-0 flex-col border-r border-border bg-background">
-      <div className="flex h-14 items-center px-5">
-        <span className="text-lg font-bold text-foreground">LogiHub</span>
+    <aside className="flex h-screen w-64 shrink-0 flex-col border-r border-border bg-background">
+      <div className="flex h-16 items-center px-6">
+        <span className="text-xl font-bold tracking-tight text-foreground">LogiHub</span>
       </div>
 
-      <nav aria-label="Главная навигация" className="flex-1 px-3 py-2">
-        <ul className="space-y-1">
+      <nav aria-label="Главная навигация" className="flex-1 px-4 py-3">
+        <ul className="space-y-2">
           {navItems.map((item) => {
             const active = isActive(pathname, item.href);
             const Icon = item.icon;
@@ -45,10 +45,10 @@ export function Sidebar() {
                 <Link
                   href={item.href}
                   className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                    "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all",
                     active
-                      ? "bg-primary text-primary-foreground"
-                      : "text-foreground hover:bg-secondary/40"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-foreground hover:bg-secondary/30"
                   )}
                 >
                   <Icon className="size-4" />

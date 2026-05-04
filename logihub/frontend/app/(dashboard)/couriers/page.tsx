@@ -10,6 +10,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { UserCreateData, UserUpdateData } from "@/hooks/useUsers";
+
+type UserSubmitData = UserCreateData & Pick<UserUpdateData, "is_active">;
 
 export default function UsersPage() {
   const { users, loading, createUser, updateUser, deleteUser } = useUsers();
@@ -34,13 +37,13 @@ export default function UsersPage() {
       try {
         await deleteUser(id);
         toast.success("Пользователь успешно удален");
-      } catch (err) {
+      } catch {
         toast.error("Ошибка при удалении пользователя");
       }
     }
   };
 
-  const handleSubmit = async (data: any) => {
+  const handleSubmit = async (data: UserSubmitData) => {
     try {
       if (editingUser) {
         await updateUser(editingUser.id, data);
@@ -50,18 +53,21 @@ export default function UsersPage() {
         toast.success("Пользователь успешно добавлен");
       }
       setModalOpen(false);
-    } catch (err) {
+    } catch {
       toast.error("Ошибка при сохранении пользователя");
     }
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-ocean">Пользователи</h1>
+    <div className="space-y-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-ocean tracking-tight">Пользователи</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Единый список курьеров и клиентов LogiHub.</p>
+        </div>
         <Button 
           onClick={handleOpenCreate} 
-          className="bg-ocean text-cream hover:bg-ocean/90"
+          className="h-11 px-5"
         >
           <Plus className="mr-2 h-4 w-4" />
           Добавить пользователя
@@ -69,11 +75,11 @@ export default function UsersPage() {
       </div>
 
       <Tabs defaultValue="couriers" className="w-full">
-        <TabsList className="bg-beige/20 border border-beige/30 p-1">
-          <TabsTrigger value="couriers" className="data-[state=active]:bg-ocean data-[state=active]:text-cream">
+        <TabsList>
+          <TabsTrigger value="couriers">
             Курьеры
           </TabsTrigger>
-          <TabsTrigger value="clients" className="data-[state=active]:bg-ocean data-[state=active]:text-cream">
+          <TabsTrigger value="clients">
             Клиенты
           </TabsTrigger>
         </TabsList>

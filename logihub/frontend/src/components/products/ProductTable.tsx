@@ -22,14 +22,14 @@ interface ProductTableProps {
 export function ProductTable({ products, onEdit, onDelete, onRestock }: ProductTableProps) {
   if (products.length === 0) {
     return (
-      <div className="rounded-xl border border-beige bg-card p-8 text-center">
+      <div className="rounded-2xl border border-beige bg-card p-8 text-center shadow-sm">
         <p className="text-sm text-ocean/60">Товаров пока нет. Добавьте первый товар.</p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-beige bg-card shadow-sm overflow-hidden">
+    <div className="rounded-2xl border border-beige bg-card shadow-sm overflow-hidden">
       <Table>
         <TableHeader>
           <TableRow className="border-beige hover:bg-transparent">
@@ -41,10 +41,9 @@ export function ProductTable({ products, onEdit, onDelete, onRestock }: ProductT
           </TableRow>
         </TableHeader>
         <TableBody>
-          {products.map((product, index) => (
+          {products.map((product) => (
             <TableRow
               key={product.id}
-              className={`border-beige ${index % 2 === 0 ? "bg-cream/50" : "bg-card"}`}
             >
               <TableCell className="text-ocean font-medium">{product.title}</TableCell>
               <TableCell className="text-ocean">
@@ -58,7 +57,7 @@ export function ProductTable({ products, onEdit, onDelete, onRestock }: ProductT
                     variant="ghost"
                     size="sm"
                     onClick={() => onRestock(product)}
-                    className="text-emerald-600 hover:bg-emerald-50"
+                    className="text-ocean hover:bg-beige/30"
                     title="Пополнить запасы"
                   >
                     <PackagePlus className="size-4" />
@@ -67,7 +66,7 @@ export function ProductTable({ products, onEdit, onDelete, onRestock }: ProductT
                     variant="ghost"
                     size="sm"
                     onClick={() => onEdit(product)}
-                    className="text-ocean hover:bg-beige/40"
+                    className="text-ocean"
                     title="Редактировать"
                   >
                     <Pencil className="size-4" />
@@ -76,7 +75,7 @@ export function ProductTable({ products, onEdit, onDelete, onRestock }: ProductT
                     variant="ghost"
                     size="sm"
                     onClick={() => onDelete(product.id)}
-                    className="text-destructive hover:bg-destructive/10"
+                    className="text-ocean hover:bg-ocean/10"
                     title="Удалить"
                   >
                     <Trash2 className="size-4" />
