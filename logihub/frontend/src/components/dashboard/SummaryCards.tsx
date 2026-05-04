@@ -41,7 +41,7 @@ export function SummaryCards({ summary, loading }: SummaryCardsProps) {
       value: summary?.stock_alerts.length ?? 0,
       sub: "товаров требуют пополнения",
       icon: AlertTriangle,
-      color: summary?.stock_alerts.length ? "text-ocean" : "text-ocean",
+      color: summary?.stock_alerts.length ? "text-destructive" : "text-ocean",
     },
   ];
 
