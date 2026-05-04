@@ -45,16 +45,25 @@ export function OrderForm({ orderId, onSuccess, onSubmit }: OrderFormProps) {
   const {
     register,
     handleSubmit,
+    watch,
     setValue,
     formState: { errors },
   } = useForm<OrderFormValues>({
     resolver: zodResolver(orderSchema),
     defaultValues: {
+      product_id: "",
       quantity: 1,
       sale_price_som: 0,
       courier_fee_som: 0,
+      courier_id: "none",
     },
   });
+
+  const selectedProductId = watch("product_id");
+  const selectedCourierId = watch("courier_id");
+
+  const selectedProduct = products.find((product) => product.id === selectedProductId);
+  const selectedCourier = couriers.filter((courier) => courier.is_active).find((courier) => courier.id === selectedCourierId);
 
   const onFormSubmit = async (values: OrderFormValues) => {
     setIsSubmitting(true);
@@ -82,9 +91,14 @@ export function OrderForm({ orderId, onSuccess, onSubmit }: OrderFormProps) {
         {/* Product Selection */}
         <div className="space-y-2">
           <label className="text-sm font-medium text-ocean ml-1">Товар</label>
-          <Select onValueChange={(val) => setValue("product_id", val as string)}>
+          <Select
+            value={selectedProductId}
+            onValueChange={(val) => setValue("product_id", val as string, { shouldDirty: true, shouldValidate: true })}
+          >
             <SelectTrigger className="w-full bg-cream/30 border-beige text-ocean h-11 rounded-xl">
-              <SelectValue placeholder="Выберите товар" />
+              <span className="truncate">
+                {selectedProduct ? selectedProduct.title : "Выберите товар"}
+              </span>
             </SelectTrigger>
             <SelectContent>
               {products.map((p) => (
@@ -173,12 +187,19 @@ export function OrderForm({ orderId, onSuccess, onSubmit }: OrderFormProps) {
         {/* Courier Assignment (Optional at creation) */}
         <div className="col-span-full space-y-2">
           <label className="text-sm font-medium text-ocean ml-1">Назначить курьера (необязательно)</label>
-          <Select onValueChange={(val) => setValue("courier_id", val as string)}>
+          <Select
+            value={selectedCourierId}
+            onValueChange={(val) => setValue("courier_id", val as string, { shouldDirty: true, shouldValidate: true })}
+          >
             <SelectTrigger className="w-full bg-cream/30 border-beige text-ocean h-11 rounded-xl">
-              <SelectValue placeholder="Выберите курьера" />
+              <span className="truncate">
+                {selectedCourierId === "none"
+                  ? "Без курьера"
+                  : selectedCourier?.name ?? "Выберите курьера"}
+              </span>
             </SelectTrigger>
             <SelectContent>
-               <SelectItem value="none">Без курьера</SelectItem>
+              <SelectItem value="none">Без курьера</SelectItem>
               {couriers.filter(c => c.is_active).map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.name}

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import html
 import logging
 import re
 from urllib.parse import urlencode
@@ -70,14 +71,11 @@ async def notify_route_started(route_out) -> None:  # route_out: RouteOut
 
 
 
-def _sanitize_markdown(text: str | None) -> str:
-    """Экранирование спецсимволов для Telegram Markdown."""
+def _sanitize_html(text: str | None) -> str:
+    """Экранирование спецсимволов для Telegram HTML."""
     if not text:
         return ""
-    # В Markdown (v1) нужно экранировать только определенные символы, если они не являются частью разметки.
-    # Но проще всего заменять их на безопасные аналоги или использовать MarkdownV2 (где нужно экранировать почти всё).
-    # Для простоты и надежности заменим основные проблемные символы.
-    return text.replace("_", "\\_").replace("*", "\\*").replace("[", "\\[").replace("`", "\\`")
+    return html.escape(str(text))
 
 async def send_courier_notification(order: Order) -> None:
     """Отправить уведомление курьеру с использованием aiogram.Bot."""
@@ -128,7 +126,7 @@ async def send_courier_notification(order: Order) -> None:
             chat_id=tg_id,
             text=message,
             reply_markup=keyboard,
-            parse_mode="Markdown"
+            parse_mode="HTML"
         )
         logger.info("Notification sent successfully for order %s", order_id_short)
 
@@ -141,19 +139,19 @@ async def send_courier_notification(order: Order) -> None:
 
 
 def _build_courier_notification(order: Order) -> str:
-    product_title = _sanitize_markdown(getattr(order.product, "title", "Товар"))
-    customer_name = _sanitize_markdown(order.customer_name or "не указано")
-    customer_phone = _sanitize_markdown(order.customer_phone or "не указано")
-    note = _sanitize_markdown(order.note or "нет")
-    address = _sanitize_markdown(order.delivery_address or "не указан")
+    product_title = _sanitize_html(getattr(order.product, "title", "Товар"))
+    customer_name = _sanitize_html(order.customer_name or "не указано")
+    customer_phone = _sanitize_html(order.customer_phone or "не указано")
+    note = _sanitize_html(order.note or "нет")
+    address = _sanitize_html(order.delivery_address or "не указан")
 
     return (
-        "🔔 *Вам назначен новый заказ!*\\n\\n"
-        f"📦 *Заказ:* `{str(order.id)[:8]}`\\n"
-        f"🍎 *Товар:* {product_title} ({order.quantity} шт.)\\n"
-        f"👤 *Клиент:* {customer_name}\\n"
-        f"📞 *Телефон:* {customer_phone}\\n"
-        f"📍 *Адрес:* {address}\\n"
-        f"📝 *Комментарий:* {note}\\n\\n"
-        "Нажмите кнопку ниже, чтобы изменить статус."
+        "📦 <b>Вам назначен новый заказ!</b>\n\n"
+        f"🆔 <b>Заказ:</b> #{str(order.id)[:8]}\n"
+        f"🛒 <b>Товар:</b> {product_title} ({order.quantity} шт.)\n"
+        f"👤 <b>Клиент:</b> {customer_name}\n"
+        f"📞 <b>Телефон:</b> {customer_phone}\n"
+        f"📍 <b>Адрес:</b> {address}\n"
+        f"📝 <b>Комментарий:</b> {note}\n\n"
+        "👇 <i>Нажмите кнопку ниже, чтобы изменить статус.</i>"
     )
