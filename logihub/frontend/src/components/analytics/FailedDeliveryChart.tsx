@@ -12,7 +12,7 @@ import {
 } from "recharts";
 import type { FailedReason } from "@/types/analytics";
 
-const COLORS = ["#2C365A", "#C4BCB0", "#EEE8DF"];
+const COLORS = ["#2C365A", "#C4BCB0", "#8A8377"];
 
 export function FailedDeliveryChart({ data }: { data: FailedReason[] }) {
   if (!data || data.length === 0) {
