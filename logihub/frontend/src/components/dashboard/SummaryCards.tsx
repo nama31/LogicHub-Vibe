@@ -41,7 +41,7 @@ export function SummaryCards({ summary, loading }: SummaryCardsProps) {
       value: summary?.stock_alerts.length ?? 0,
       sub: "товаров требуют пополнения",
       icon: AlertTriangle,
-      color: summary?.stock_alerts.length ? "text-amber-600" : "text-ocean",
+      color: summary?.stock_alerts.length ? "text-ocean" : "text-ocean",
     },
   ];
 
@@ -60,19 +60,19 @@ export function SummaryCards({ summary, loading }: SummaryCardsProps) {
       {cards.map((card, i) => (
         <Card 
           key={i} 
-          className="p-6 bg-[#EEE8DF] border-[#C4BCB0] rounded-2xl shadow-sm hover:shadow-md transition-all group"
+          className="transition-all hover:shadow-md group"
         >
           <div className="flex items-start justify-between">
             <div className="space-y-1">
               <p className="text-sm font-medium text-muted-foreground">{card.title}</p>
-              <h3 className="text-2xl font-bold text-[#2C365A] tracking-tight">
+              <h3 className="text-2xl font-bold text-ocean tracking-tight">
                 {card.value}
               </h3>
               <p className="text-xs text-muted-foreground font-medium">
                 {card.sub}
               </p>
             </div>
-            <div className={`p-2 rounded-xl bg-white/50 border border-white/20 ${card.color}`}>
+            <div className={`rounded-xl border border-beige bg-beige/20 p-3 ${card.color}`}>
               <card.icon size={20} className="group-hover:scale-110 transition-transform" />
             </div>
           </div>

@@ -2,7 +2,6 @@
 
 import { StatusEntry } from "@/types/order";
 import { STATUS_LABELS_RU } from "@/lib/constants";
-import { cn } from "@/lib/utils";
 import { CheckCircle2, Circle, Clock, AlertCircle } from "lucide-react";
 
 interface StatusTimelineProps {

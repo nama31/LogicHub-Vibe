@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Product } from "@/types/product";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -42,11 +43,11 @@ export function ProductRestockModal({ product, open, onClose, onSubmit }: Produc
 
   return (
     <Dialog open={open} onOpenChange={(val) => !val && onClose()}>
-      <DialogContent className="sm:max-w-[425px] bg-card text-ocean border-beige">
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Пополнение запасов</DialogTitle>
-          <DialogDescription className="text-ocean/70">
-            Укажите количество {product?.unit} для добавления к товару "{product?.title}".
+          <DialogDescription>
+            Укажите количество {product?.unit} для добавления к товару “{product?.title}”.
           </DialogDescription>
         </DialogHeader>
 
@@ -55,14 +56,13 @@ export function ProductRestockModal({ product, open, onClose, onSubmit }: Produc
             <label htmlFor="amount" className="text-sm font-medium">
               Добавляемое количество
             </label>
-            <input
+            <Input
               id="amount"
               type="number"
               min="1"
               value={amount}
               onChange={(e) => setAmount(e.target.value ? Number(e.target.value) : "")}
               required
-              className="flex h-10 w-full rounded-md border border-beige bg-cream/30 px-3 py-2 text-sm text-ocean placeholder:text-ocean/30 focus:outline-none focus:ring-2 focus:ring-ocean/20"
               placeholder="Например: 50"
             />
           </div>
@@ -73,7 +73,6 @@ export function ProductRestockModal({ product, open, onClose, onSubmit }: Produc
               variant="outline"
               onClick={onClose}
               disabled={loading}
-              className="border-beige text-ocean hover:bg-beige/20"
             >
               Отмена
             </Button>

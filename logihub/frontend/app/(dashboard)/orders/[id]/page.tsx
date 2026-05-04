@@ -28,7 +28,7 @@ export default function OrderDetailPage() {
       await updateOrder(id, { status: "failed" });
       toast.success("Заказ отклонен");
       refetch();
-    } catch (err) {
+    } catch {
       toast.error("Ошибка при отклонении заказа");
     }
   };
@@ -36,7 +36,7 @@ export default function OrderDetailPage() {
   if (loading) {
     return (
       <div className="space-y-8 animate-pulse p-4">
-        <div className="h-10 w-48 bg-beige/20 rounded-lg" />
+        <div className="h-10 w-48 bg-beige/20 rounded-xl" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="md:col-span-2 space-y-6">
             <div className="h-64 bg-beige/10 rounded-2xl" />
@@ -52,7 +52,7 @@ export default function OrderDetailPage() {
     return (
       <div className="text-center py-20 space-y-4">
         <h2 className="text-2xl font-bold text-ocean">Заказ не найден</h2>
-        <Button variant="outline" onClick={() => router.push("/orders")} className="rounded-xl border-beige text-ocean">
+        <Button variant="outline" onClick={() => router.push("/orders")}>
           Вернуться к списку
         </Button>
       </div>
@@ -60,11 +60,11 @@ export default function OrderDetailPage() {
   }
 
   return (
-    <div className="space-y-8 p-1 sm:p-4">
+    <div className="space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.push("/orders")} className="rounded-full hover:bg-beige/30 size-11">
+          <Button variant="ghost" size="icon" onClick={() => router.push("/orders")} className="size-11">
             <ArrowLeft className="size-6 text-ocean" />
           </Button>
           <div>
@@ -81,14 +81,14 @@ export default function OrderDetailPage() {
             <>
               <Button
                 onClick={() => setIsApproveOpen(true)}
-                className="bg-ocean text-cream hover:bg-ocean/90 rounded-xl px-6 h-11 font-semibold shadow-lg shadow-ocean/10"
+                className="h-11 px-6"
               >
                 Проверить и одобрить
               </Button>
               <Button
                 onClick={handleReject}
                 variant="outline"
-                className="border-destructive text-destructive hover:bg-destructive/10 rounded-xl px-6 h-11 font-semibold"
+                className="h-11 px-6"
               >
                 Отклонить
               </Button>
@@ -99,13 +99,13 @@ export default function OrderDetailPage() {
                 <Button
                   variant="outline"
                   onClick={() => setIsEditOpen(true)}
-                  className="border-beige text-ocean hover:bg-beige/20 rounded-xl px-6 h-11 font-semibold"
+                  className="h-11 px-6"
                 >
                   Редактировать
                 </Button>
                 <Button
                   onClick={() => setIsAssignOpen(true)}
-                  className="bg-ocean text-cream hover:bg-ocean/90 rounded-xl px-6 h-11 font-semibold transition-all active:scale-95 shadow-lg shadow-ocean/10"
+                  className="h-11 px-6"
                 >
                   {order.courier ? "Переназначить" : "Назначить курьера"}
                 </Button>
@@ -118,15 +118,15 @@ export default function OrderDetailPage() {
         {/* Main Content */}
         <div className="md:col-span-2 space-y-6">
           {/* Order Details Card */}
-          <div className="bg-card border border-border rounded-[2.5rem] overflow-hidden shadow-sm">
+          <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
             <div className="bg-beige/10 px-8 py-5 border-b border-border flex items-center justify-between">
               <h3 className="font-bold text-ocean flex items-center gap-2">
                 <Package className="size-5" /> Детали заказа
               </h3>
               <Badge className={
                 order.status === "pending" 
-                  ? "bg-yellow-100 text-yellow-800 border-none px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wider"
-                  : "bg-ocean text-cream border-none px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wider"
+                  ? "bg-beige/30 text-ocean border-beige px-4 py-1 rounded-xl text-xs font-bold uppercase tracking-wider"
+                  : "bg-ocean text-cream border-ocean px-4 py-1 rounded-xl text-xs font-bold uppercase tracking-wider"
               }>
                 {STATUS_LABELS_RU[order.status] || order.status}
               </Badge>
@@ -141,7 +141,7 @@ export default function OrderDetailPage() {
                   <div>
                     <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">Товар</p>
                     <p className="font-bold text-ocean text-xl leading-tight">{order.product?.title}</p>
-                    <p className="text-sm text-muted-foreground mt-1 bg-beige/20 inline-block px-2 py-0.5 rounded-md">
+                    <p className="text-sm text-muted-foreground mt-1 bg-beige/20 inline-block px-2 py-0.5 rounded-xl">
                       Кол-во: <span className="font-bold text-ocean">{order.quantity} шт.</span>
                     </p>
                   </div>
@@ -172,7 +172,7 @@ export default function OrderDetailPage() {
                   </div>
                 </div>
 
-                <div className="bg-cream/40 p-5 rounded-[2rem] space-y-3 border border-beige/30">
+                <div className="bg-cream/40 p-5 rounded-2xl space-y-3 border border-beige/30">
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-muted-foreground font-medium">Сумма продажи:</span>
                     <span className="font-bold text-ocean text-base">{order.sale_price_som} сом</span>
@@ -197,16 +197,16 @@ export default function OrderDetailPage() {
               {order.status !== "failed" && order.note && (
                 <div className="col-span-full bg-muted/30 p-5 rounded-2xl border-l-4 border-ocean/40 shadow-inner">
                    <p className="text-[9px] text-muted-foreground uppercase font-black tracking-widest mb-2">Примечание</p>
-                   <p className="text-ocean/80 italic leading-relaxed">"{order.note}"</p>
+                   <p className="text-ocean/80 italic leading-relaxed">“{order.note}”</p>
                 </div>
               )}
             </div>
           </div>
 
           {/* Courier Card */}
-          <div className="bg-card border border-border rounded-[2rem] p-6 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div className="bg-card border border-border rounded-2xl p-6 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-5">
-              <div className="bg-ocean text-cream p-4 rounded-2xl shadow-lg shadow-ocean/20">
+              <div className="bg-ocean text-cream p-4 rounded-2xl shadow-sm">
                 <User className="size-7" />
               </div>
               <div>
@@ -217,11 +217,11 @@ export default function OrderDetailPage() {
               </div>
             </div>
             {!order.courier ? (
-              <Button onClick={() => setIsAssignOpen(true)} className="rounded-xl bg-ocean text-cream hover:bg-ocean/90 h-12 px-6 font-bold w-full sm:w-auto">
+              <Button onClick={() => setIsAssignOpen(true)} className="h-12 px-6 w-full sm:w-auto">
                 Назначить сейчас
               </Button>
             ) : (
-              <Button variant="outline" onClick={() => setIsAssignOpen(true)} className="rounded-xl border-beige text-ocean hover:bg-beige/10 h-12 px-6 font-semibold w-full sm:w-auto">
+              <Button variant="outline" onClick={() => setIsAssignOpen(true)} className="h-12 px-6 w-full sm:w-auto">
                 Изменить курьера
               </Button>
             )}
@@ -230,7 +230,7 @@ export default function OrderDetailPage() {
 
         {/* Sidebar / Timeline */}
         <div className="space-y-6">
-          <div className="bg-card border border-border rounded-[2.5rem] p-8 shadow-sm">
+          <div className="bg-card border border-border rounded-2xl p-8 shadow-sm">
             <h3 className="text-2xl font-black text-ocean mb-10 flex items-center gap-3 tracking-tight">
               <Clock className="size-6" /> История
             </h3>

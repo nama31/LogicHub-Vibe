@@ -38,7 +38,7 @@ export default function ProductsPage() {
     try {
       await deleteProduct(id);
       toast.success("Товар успешно удален");
-    } catch (err) {
+    } catch {
       toast.error("Ошибка при удалении товара");
     }
   }
@@ -48,7 +48,7 @@ export default function ProductsPage() {
       try {
         await restockProduct(id, amount);
         toast.success("Запасы успешно пополнены");
-      } catch (err) {
+      } catch {
         toast.error("Ошибка при пополнении запасов");
       }
     }
@@ -71,7 +71,7 @@ export default function ProductsPage() {
         toast.success("Товар успешно добавлен");
       }
       setModalOpen(false);
-    } catch (err) {
+    } catch {
       toast.error("Ошибка при сохранении товара");
     }
   }
@@ -88,10 +88,13 @@ export default function ProductsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-ocean">Инвентарь</h1>
-        <Button onClick={handleAdd} className="gap-2">
+    <div className="space-y-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-ocean tracking-tight">Инвентарь</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Контроль товаров, цен и складских остатков.</p>
+        </div>
+        <Button onClick={handleAdd} className="h-11 gap-2 px-5">
           <Plus className="size-4" />
           Добавить товар
         </Button>

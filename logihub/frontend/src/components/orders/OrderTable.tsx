@@ -25,23 +25,23 @@ export function OrderTable({ orders = [], onAssign }: OrderTableProps) {
   const getStatusBadge = (status: Order["status"]) => {
     switch (status) {
       case "pending":
-        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-none font-medium">На проверке</Badge>;
+        return <Badge className="border-beige bg-beige/30 text-ocean hover:bg-beige/40 font-medium">На проверке</Badge>;
       case "new":
-        return <Badge className="bg-beige text-ocean hover:bg-beige/90 border-none font-medium">{STATUS_LABELS_RU[status]}</Badge>;
+        return <Badge className="border-beige bg-beige text-ocean hover:bg-beige/90 font-medium">{STATUS_LABELS_RU[status]}</Badge>;
       case "assigned":
       case "in_transit":
-        return <Badge className="bg-ocean text-cream hover:bg-ocean/90 border-none font-medium">{STATUS_LABELS_RU[status]}</Badge>;
+        return <Badge className="border-ocean bg-ocean text-cream hover:bg-ocean/90 font-medium">{STATUS_LABELS_RU[status]}</Badge>;
       case "delivered":
-        return <Badge className="bg-muted text-muted-foreground hover:bg-muted/90 border-none font-medium">{STATUS_LABELS_RU[status]}</Badge>;
+        return <Badge className="border-beige bg-background text-ocean hover:bg-beige/20 font-medium">{STATUS_LABELS_RU[status]}</Badge>;
       case "failed":
-        return <Badge className="bg-destructive/10 text-destructive hover:bg-destructive/20 border-none font-medium">{STATUS_LABELS_RU[status]}</Badge>;
+        return <Badge className="border-ocean bg-ocean/10 text-ocean hover:bg-ocean/20 font-medium">{STATUS_LABELS_RU[status]}</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
   };
 
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
+    <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
@@ -63,7 +63,7 @@ export function OrderTable({ orders = [], onAssign }: OrderTableProps) {
             </TableRow>
           ) : (
             orders.map((o) => (
-              <TableRow key={o.id} className="hover:bg-muted/50 transition-colors">
+              <TableRow key={o.id}>
                 <TableCell className="font-medium text-ocean font-mono text-xs" title={String(o.id)}>
                   {o.id}
                 </TableCell>
@@ -83,7 +83,7 @@ export function OrderTable({ orders = [], onAssign }: OrderTableProps) {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="text-ocean hover:bg-beige/50"
+                      className="text-ocean"
                       onClick={() => onAssign?.(o)}
                     >
                       {o.courier ? "Переназначить" : "Назначить"}
@@ -92,7 +92,7 @@ export function OrderTable({ orders = [], onAssign }: OrderTableProps) {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-ocean hover:bg-beige/50"
+                    className="text-ocean"
                     onClick={() => router.push(`/orders/${o.id}`)}
                   >
                     Детали

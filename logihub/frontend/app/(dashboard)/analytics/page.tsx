@@ -11,8 +11,16 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar, Download, TrendingUp, Wallet, ShoppingCart, Users, Package, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { ComponentType } from "react";
 
 import { useAuth } from "@/hooks/useAuth";
+
+function getDefaultDateRange() {
+  return {
+    from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+    to: new Date().toISOString().split("T")[0],
+  };
+}
 
 const TABS = [
   { id: "overview", label: "Обзор", icon: TrendingUp },
@@ -26,10 +34,7 @@ export default function AnalyticsPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
   const [activeTab, setActiveTab] = useState("overview");
-  const [dateRange, setDateRange] = useState({
-    from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-    to: new Date().toISOString().split("T")[0],
-  });
+  const [dateRange, setDateRange] = useState(getDefaultDateRange);
 
   const { profit, couriers, products, trends, failures, loading } = useAnalytics(dateRange);
 
@@ -61,7 +66,7 @@ export default function AnalyticsPage() {
           <p className="text-muted-foreground">Глубокий анализ финансовых и операционных показателей.</p>
         </div>
         
-        <div className="flex flex-wrap items-center gap-3 bg-white/50 p-2 rounded-2xl border border-beige/40 backdrop-blur-sm">
+        <div className="flex flex-wrap items-center gap-3 bg-card p-2 rounded-2xl border border-beige shadow-sm">
           <div className="flex items-center gap-2 px-3 py-2">
             <Calendar size={18} className="text-ocean/50" />
             <input 
@@ -78,7 +83,7 @@ export default function AnalyticsPage() {
               className="bg-transparent border-none text-sm font-bold text-ocean focus:ring-0 cursor-pointer"
             />
           </div>
-          <Button variant="ghost" size="icon" className="text-ocean rounded-xl hover:bg-beige/30">
+          <Button variant="ghost" size="icon" className="text-ocean">
             <Download size={20} />
           </Button>
         </div>
@@ -95,8 +100,8 @@ export default function AnalyticsPage() {
               className={cn(
                 "shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all",
                 activeTab === tab.id
-                  ? "bg-[#2C365A] text-[#EEE8DF] shadow-md"
-                  : "bg-white/60 text-ocean border border-beige/40 hover:border-ocean/30"
+                  ? "bg-ocean text-cream shadow-sm"
+                  : "bg-card text-ocean border border-beige hover:border-ocean/30"
               )}
             >
               <Icon size={16} />
@@ -109,12 +114,12 @@ export default function AnalyticsPage() {
       {/* Tab Content */}
       <div className="min-h-[500px]">
         {loading ? (
-          <div className="h-[400px] bg-white/50 border border-beige/40 rounded-3xl animate-pulse" />
+          <div className="h-[400px] bg-beige/20 border border-beige rounded-2xl animate-pulse" />
         ) : (
           <>
             {activeTab === "overview" && (
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                <Card className="lg:col-span-3 p-8 bg-white border-beige/50 rounded-3xl shadow-sm overflow-hidden">
+                <Card className="lg:col-span-3 overflow-hidden">
                   <div className="flex items-center justify-between mb-8">
                     <div>
                       <h2 className="text-xl font-bold text-ocean">Динамика прибыли</h2>
@@ -135,26 +140,23 @@ export default function AnalyticsPage() {
                     title="Оборот" 
                     value={formatMoney(profit?.breakdown.reduce((acc, curr) => acc + curr.revenue_som, 0))}
                     icon={TrendingUp}
-                    color="text-blue-600 bg-blue-50"
                   />
                   <StatMiniCard 
                     title="Заказы" 
                     value={profit?.breakdown.reduce((acc, curr) => acc + curr.orders, 0) ?? 0}
                     icon={ShoppingCart}
-                    color="text-purple-600 bg-purple-50"
                   />
                   <StatMiniCard 
                     title="Комиссии курьерам" 
                     value={formatMoney(profit?.breakdown.reduce((acc, curr) => acc + curr.courier_fees_som, 0))}
                     icon={Wallet}
-                    color="text-amber-600 bg-amber-50"
                   />
                 </div>
               </div>
             )}
 
             {activeTab === "couriers" && (
-              <Card className="p-8 bg-white border-beige/50 rounded-3xl shadow-sm overflow-hidden">
+              <Card className="overflow-hidden">
                 <div className="mb-6">
                   <h2 className="text-xl font-bold text-ocean">Лидерборд курьеров</h2>
                   <p className="text-sm text-muted-foreground">Эффективность курьеров и их заработок за всё время</p>
@@ -164,7 +166,7 @@ export default function AnalyticsPage() {
             )}
 
             {activeTab === "products" && (
-              <Card className="p-8 bg-white border-beige/50 rounded-3xl shadow-sm overflow-hidden">
+              <Card className="overflow-hidden">
                 <div className="mb-6">
                   <h2 className="text-xl font-bold text-ocean">Маржинальность товаров</h2>
                   <p className="text-sm text-muted-foreground">Анализ рентабельности по каждому товару</p>
@@ -174,7 +176,7 @@ export default function AnalyticsPage() {
             )}
 
             {activeTab === "trends" && (
-              <Card className="p-8 bg-white border-beige/50 rounded-3xl shadow-sm overflow-hidden">
+              <Card className="overflow-hidden">
                 <div className="mb-6">
                   <h2 className="text-xl font-bold text-ocean">Тренды за 30 дней</h2>
                   <p className="text-sm text-muted-foreground">Сравнение количества заказов и чистой прибыли</p>
@@ -184,7 +186,7 @@ export default function AnalyticsPage() {
             )}
 
             {activeTab === "failures" && (
-              <Card className="p-8 bg-white border-beige/50 rounded-3xl shadow-sm overflow-hidden">
+              <Card className="overflow-hidden">
                 <div className="mb-6">
                   <h2 className="text-xl font-bold text-ocean">Причины отказов</h2>
                   <p className="text-sm text-muted-foreground">Распределение причин недоставленных заказов</p>
@@ -199,11 +201,17 @@ export default function AnalyticsPage() {
   );
 }
 
-function StatMiniCard({ title, value, icon: Icon, color }: any) {
+type StatMiniCardProps = {
+  title: string;
+  value: string | number;
+  icon: ComponentType<{ size?: number }>;
+};
+
+function StatMiniCard({ title, value, icon: Icon }: StatMiniCardProps) {
   return (
-    <Card className="p-6 bg-white border-beige/40 rounded-2xl shadow-sm group hover:shadow-md transition-all">
+    <Card className="group transition-all hover:shadow-md">
       <div className="flex items-center gap-4">
-        <div className={`p-3 rounded-xl ${color} group-hover:scale-110 transition-transform`}>
+        <div className="p-3 rounded-xl border border-beige bg-beige/20 text-ocean group-hover:scale-105 transition-transform">
           <Icon size={24} />
         </div>
         <div>

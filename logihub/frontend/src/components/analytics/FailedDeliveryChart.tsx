@@ -12,12 +12,12 @@ import {
 } from "recharts";
 import type { FailedReason } from "@/types/analytics";
 
-const COLORS = ["#f87171", "#fb923c", "#fbbf24", "#a3e635", "#34d399"];
+const COLORS = ["#2C365A", "#C4BCB0", "#EEE8DF"];
 
 export function FailedDeliveryChart({ data }: { data: FailedReason[] }) {
   if (!data || data.length === 0) {
     return (
-      <div className="h-[300px] flex items-center justify-center text-muted-foreground bg-white/30 rounded-3xl border border-dashed border-beige">
+      <div className="h-[300px] flex items-center justify-center text-muted-foreground bg-card rounded-2xl border border-dashed border-beige">
         Нет данных об отказах
       </div>
     );
@@ -42,7 +42,7 @@ export function FailedDeliveryChart({ data }: { data: FailedReason[] }) {
             width={120}
           />
           <Tooltip
-            cursor={{ fill: "#f1f5f9" }}
+            cursor={{ fill: "#C4BCB0" }}
             contentStyle={{
               backgroundColor: "#EEE8DF",
               borderRadius: "16px",
@@ -50,8 +50,8 @@ export function FailedDeliveryChart({ data }: { data: FailedReason[] }) {
               boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
               color: "#2C365A",
             }}
-            itemStyle={{ fontWeight: "bold", color: "#f87171" }}
-            formatter={(value: any) => [`${value} отказов`, "Количество"]}
+            itemStyle={{ fontWeight: "bold", color: "#2C365A" }}
+            formatter={(value) => [`${value ?? 0} отказов`, "Количество"]}
           />
           <Bar dataKey="count" radius={[0, 8, 8, 0]} animationDuration={1500} barSize={30}>
             {data.map((entry, index) => (

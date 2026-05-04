@@ -22,7 +22,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <Sidebar />
             <div className="flex flex-1 flex-col">
               <TopBar />
-              <main className="flex-1 p-6">{children}</main>
+              <main className="flex-1 px-8 py-8">{children}</main>
             </div>
           </div>
           <Toaster position="top-center" richColors />

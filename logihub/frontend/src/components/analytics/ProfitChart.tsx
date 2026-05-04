@@ -1,8 +1,6 @@
 "use client";
 
 import {
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -20,7 +18,7 @@ interface ProfitChartProps {
 export function ProfitChart({ data }: ProfitChartProps) {
   if (!data || !data.breakdown.length) {
     return (
-      <div className="h-[400px] flex items-center justify-center text-muted-foreground bg-white/30 rounded-3xl border border-dashed border-beige">
+      <div className="h-[400px] flex items-center justify-center text-muted-foreground bg-card rounded-2xl border border-dashed border-beige">
         Нет данных для отображения за выбранный период
       </div>
     );

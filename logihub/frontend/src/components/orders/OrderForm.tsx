@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable react-hooks/incompatible-library */
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -11,7 +12,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import { useProducts } from "@/hooks/useProducts";
 import { useUsers } from "@/hooks/useUsers";
@@ -35,7 +35,7 @@ interface OrderFormProps {
   orderId?: string;
   initialData?: Partial<OrderFormValues>;
   onSuccess?: () => void;
-  onSubmit: (data: any) => Promise<any>;
+  onSubmit: (data: OrderCreate) => Promise<unknown>;
 }
 
 export function OrderForm({ orderId, initialData, onSuccess, onSubmit }: OrderFormProps) {
@@ -115,7 +115,7 @@ export function OrderForm({ orderId, initialData, onSuccess, onSubmit }: OrderFo
   };
 
   return (
-    <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-6 max-w-2xl mx-auto p-8 bg-card rounded-3xl border border-border shadow-sm">
+    <form onSubmit={handleSubmit(onFormSubmit)} className="mx-auto max-w-2xl space-y-6 rounded-2xl border border-border bg-card p-6 shadow-sm">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Product Selection */}
         <div className="space-y-2">
@@ -124,7 +124,7 @@ export function OrderForm({ orderId, initialData, onSuccess, onSubmit }: OrderFo
             value={selectedProductId}
             onValueChange={(val) => setValue("product_id", val as string, { shouldDirty: true, shouldValidate: true })}
           >
-            <SelectTrigger className="w-full bg-cream/30 border-beige text-ocean h-11 rounded-xl">
+            <SelectTrigger className="w-full text-ocean">
               <span className="truncate">
                 {selectedProduct ? selectedProduct.title : "Выберите товар"}
               </span>
@@ -146,7 +146,7 @@ export function OrderForm({ orderId, initialData, onSuccess, onSubmit }: OrderFo
           <Input
             type="number"
             {...register("quantity", { valueAsNumber: true })}
-            className="bg-cream/30 border-beige text-ocean h-11 rounded-xl"
+            className="text-ocean"
           />
           {errors.quantity && <p className="text-xs text-destructive ml-1">{errors.quantity.message}</p>}
         </div>
@@ -157,7 +157,7 @@ export function OrderForm({ orderId, initialData, onSuccess, onSubmit }: OrderFo
           <Input
             type="number"
             {...register("sale_price_som", { valueAsNumber: true })}
-            className="bg-cream/30 border-beige text-ocean h-11 rounded-xl"
+            className="text-ocean"
           />
           {errors.sale_price_som && <p className="text-xs text-destructive ml-1">{errors.sale_price_som.message}</p>}
         </div>
@@ -168,7 +168,7 @@ export function OrderForm({ orderId, initialData, onSuccess, onSubmit }: OrderFo
           <Input
             type="number"
             {...register("courier_fee_som", { valueAsNumber: true })}
-            className="bg-cream/30 border-beige text-ocean h-11 rounded-xl"
+            className="text-ocean"
           />
           {errors.courier_fee_som && <p className="text-xs text-destructive ml-1">{errors.courier_fee_som.message}</p>}
         </div>
@@ -179,7 +179,7 @@ export function OrderForm({ orderId, initialData, onSuccess, onSubmit }: OrderFo
           <Input
             {...register("customer_name")}
             placeholder="Иван Иванов"
-            className="bg-cream/30 border-beige text-ocean h-11 rounded-xl"
+            className="text-ocean"
           />
         </div>
 
@@ -188,7 +188,7 @@ export function OrderForm({ orderId, initialData, onSuccess, onSubmit }: OrderFo
           <Input
             {...register("customer_phone")}
             placeholder="+996 ..."
-            className="bg-cream/30 border-beige text-ocean h-11 rounded-xl"
+            className="text-ocean"
           />
         </div>
 
@@ -198,7 +198,7 @@ export function OrderForm({ orderId, initialData, onSuccess, onSubmit }: OrderFo
           <Input
             {...register("delivery_address")}
             placeholder="Улица, дом, кв..."
-            className="bg-cream/30 border-beige text-ocean h-11 rounded-xl"
+            className="text-ocean"
           />
           {errors.delivery_address && <p className="text-xs text-destructive ml-1">{errors.delivery_address.message}</p>}
         </div>
@@ -209,7 +209,7 @@ export function OrderForm({ orderId, initialData, onSuccess, onSubmit }: OrderFo
           <Input
             {...register("note")}
             placeholder="Комментарий к заказу..."
-            className="bg-cream/30 border-beige text-ocean h-11 rounded-xl"
+            className="text-ocean"
           />
         </div>
 
@@ -220,7 +220,7 @@ export function OrderForm({ orderId, initialData, onSuccess, onSubmit }: OrderFo
             value={selectedCourierId}
             onValueChange={(val) => setValue("courier_id", val as string, { shouldDirty: true, shouldValidate: true })}
           >
-            <SelectTrigger className="w-full bg-cream/30 border-beige text-ocean h-11 rounded-xl">
+            <SelectTrigger className="w-full text-ocean">
               <span className="truncate">
                 {selectedCourierId === "none"
                   ? "Без курьера"
@@ -239,11 +239,11 @@ export function OrderForm({ orderId, initialData, onSuccess, onSubmit }: OrderFo
         </div>
       </div>
 
-      <div className="pt-6 flex justify-center">
+      <div className="flex justify-end border-t border-beige pt-6">
         <Button
           type="submit"
           disabled={isSubmitting}
-          className="bg-ocean text-cream hover:bg-ocean/90 px-12 py-7 h-auto text-xl font-semibold rounded-2xl transition-all active:scale-95 shadow-xl shadow-ocean/20 w-full sm:w-auto"
+          className="w-full px-8 sm:w-auto"
         >
           {isSubmitting ? "Создание..." : orderId ? "Сохранить изменения" : "Оформить заказ"}
         </Button>

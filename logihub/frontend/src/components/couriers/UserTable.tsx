@@ -21,7 +21,7 @@ interface UserTableProps {
 
 export function UserTable({ users = [], onEdit, onDelete }: UserTableProps) {
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
+    <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
@@ -41,17 +41,17 @@ export function UserTable({ users = [], onEdit, onDelete }: UserTableProps) {
             </TableRow>
           ) : (
             users.map((u) => (
-              <TableRow key={u.id} className="hover:bg-muted/50 transition-colors">
+              <TableRow key={u.id}>
                 <TableCell className="font-medium text-ocean">{u.name}</TableCell>
                 <TableCell className="text-ocean">{u.tg_id ?? "—"}</TableCell>
                 <TableCell className="text-ocean">{u.phone ?? "—"}</TableCell>
                 <TableCell>
                   {u.is_active ? (
-                    <Badge className="bg-ocean text-cream hover:bg-ocean/90 border-none font-medium">
+                    <Badge className="border-ocean bg-ocean text-cream hover:bg-ocean/90 font-medium">
                       Активен
                     </Badge>
                   ) : (
-                    <Badge className="bg-beige text-ocean hover:bg-beige/90 border-none font-medium">
+                    <Badge className="border-beige bg-beige text-ocean hover:bg-beige/90 font-medium">
                       Отключён
                     </Badge>
                   )}
@@ -61,7 +61,7 @@ export function UserTable({ users = [], onEdit, onDelete }: UserTableProps) {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="text-ocean hover:bg-beige/50"
+                      className="text-ocean"
                       onClick={() => onEdit?.(u)}
                     >
                       <Pencil className="size-4" />
@@ -69,7 +69,7 @@ export function UserTable({ users = [], onEdit, onDelete }: UserTableProps) {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="text-destructive hover:bg-destructive/10"
+                      className="text-ocean hover:bg-ocean/10"
                       onClick={() => onDelete?.(u.id)}
                     >
                       <Trash2 className="size-4" />

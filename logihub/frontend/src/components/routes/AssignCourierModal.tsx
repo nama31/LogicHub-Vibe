@@ -48,10 +48,10 @@ export function AssignCourierModal({ routeId, isOpen, onClose, onAssigned }: Ass
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px] bg-card border-beige rounded-3xl p-0 overflow-hidden shadow-2xl">
-        <div className="p-6">
+      <DialogContent className="sm:max-w-[425px]">
+        <div>
           <DialogHeader className="mb-4">
-            <DialogTitle className="text-2xl font-bold text-ocean">Назначить курьера на маршрут</DialogTitle>
+            <DialogTitle className="text-xl font-bold text-ocean">Назначить курьера на маршрут</DialogTitle>
           </DialogHeader>
           
           <div className="space-y-6">
@@ -62,12 +62,12 @@ export function AssignCourierModal({ routeId, isOpen, onClose, onAssigned }: Ass
             <div className="space-y-3">
               <label className="text-sm font-semibold text-ocean ml-1">Активные курьеры</label>
               <Select onValueChange={(val) => setSelectedCourierId(val as string)} value={selectedCourierId}>
-                <SelectTrigger className="w-full bg-cream/30 border-beige text-ocean h-12 rounded-xl transition-all focus:ring-2 focus:ring-ocean/10">
+                <SelectTrigger className="w-full text-ocean">
                   <SelectValue placeholder="Выберите курьера из списка" />
                 </SelectTrigger>
-                <SelectContent className="rounded-xl border-beige shadow-xl">
+                <SelectContent>
                   {couriers.filter(c => c.is_active).map((c) => (
-                    <SelectItem key={c.id} value={c.id} className="py-3 focus:bg-beige/30 rounded-lg mx-1">
+                    <SelectItem key={c.id} value={c.id}>
                       {c.name}
                     </SelectItem>
                   ))}
@@ -80,14 +80,14 @@ export function AssignCourierModal({ routeId, isOpen, onClose, onAssigned }: Ass
           </div>
         </div>
 
-        <DialogFooter className="bg-beige/20 p-4 gap-3 border-t border-beige/30">
-          <Button variant="ghost" onClick={onClose} className="text-ocean font-medium hover:bg-beige/30 rounded-xl px-6 h-11">
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
             Отмена
           </Button>
           <Button 
             onClick={handleAssign} 
             disabled={!selectedCourierId || isSubmitting}
-            className="bg-ocean text-cream hover:bg-ocean/90 font-bold rounded-xl px-8 h-11 transition-all active:scale-95 shadow-lg shadow-ocean/20"
+            className="px-8"
           >
             {isSubmitting ? "Назначение..." : "Назначить"}
           </Button>

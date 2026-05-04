@@ -9,7 +9,7 @@ import {
 import { OrderForm } from "./OrderForm";
 import { useOrders } from "@/hooks/useOrders";
 import { toast } from "sonner";
-import type { Order } from "@/types/order";
+import type { Order, OrderCreate, OrderUpdate } from "@/types/order";
 
 interface EditOrderModalProps {
   order: Order;
@@ -22,10 +22,9 @@ interface EditOrderModalProps {
 export function EditOrderModal({ order, isOpen, onClose, onUpdated, approveAfterUpdate }: EditOrderModalProps) {
   const { updateOrder } = useOrders();
 
-  const handleUpdate = async (values: any) => {
+  const handleUpdate = async (values: OrderCreate) => {
     try {
-      // If we are approving, we also change the status to "new"
-      const payload = {
+      const payload: OrderUpdate = {
         ...values,
         ...(approveAfterUpdate ? { status: "new" as const } : {}),
       };
@@ -34,21 +33,21 @@ export function EditOrderModal({ order, isOpen, onClose, onUpdated, approveAfter
       toast.success(approveAfterUpdate ? "Заказ одобрен" : "Заказ обновлен");
       onUpdated?.();
       onClose();
-    } catch (err) {
+    } catch {
       toast.error("Ошибка при обновлении заказа");
     }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto rounded-[2rem] border-beige bg-cream p-0 shadow-2xl">
-        <DialogHeader className="p-8 pb-0">
-          <DialogTitle className="text-3xl font-black text-ocean tracking-tight">
+      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-bold text-ocean tracking-tight">
             {approveAfterUpdate ? "Одобрение заказа" : "Редактирование заказа"}
           </DialogTitle>
         </DialogHeader>
         
-        <div className="p-4 sm:p-8">
+        <div>
             <OrderForm 
                 orderId={String(order.id)}
                 initialData={{
