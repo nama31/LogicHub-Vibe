@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -149,6 +149,7 @@ async def get_bot_catalog(
 @router.post("/orders/client")
 async def create_client_order_bot(
     payload: BotClientOrderRequest,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     _secret: bool = Depends(require_bot_secret),
 ) -> dict:
@@ -158,47 +159,45 @@ async def create_client_order_bot(
     if user is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Client access required")
 
-    product = await _get_product_for_update(payload.product_id, db)
-    if product is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+    async with db.begin():
+        product = await _get_product_for_update(payload.product_id, db)
+        if product is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
 
-    if product.stock_quantity < payload.quantity:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Insufficient stock")
+        if product.stock_quantity < payload.quantity:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Insufficient stock")
 
-    order = Order(
-        product_id=payload.product_id,
-        quantity=payload.quantity,
-        sale_price=product.selling_price,
-        courier_fee=0, # Заполняется админом позже
-        customer_name=user.name,
-        customer_phone=user.phone,
-        delivery_address=payload.delivery_address,
-        note=payload.note,
-        status="pending"
-    )
-    
-    product.stock_quantity -= payload.quantity
-    db.add(order)
-    await db.flush() # Получаем ID заказа
-
-    # Лог статуса
-    db.add(
-        OrderStatusLog(
-            order_id=order.id,
-            changed_by=user.id,
-            old_status=None,
-            new_status="new",
-            changed_at=datetime.now(UTC),
+        order = Order(
+            product_id=payload.product_id,
+            quantity=payload.quantity,
+            sale_price=product.selling_price,
+            courier_fee=0, # Заполняется админом позже
+            customer_name=user.name,
+            customer_phone=user.phone,
+            delivery_address=payload.delivery_address,
+            note=payload.note,
+            status="pending"
         )
-    )
+        
+        product.stock_quantity -= payload.quantity
+        db.add(order)
+        await db.flush() # Получаем ID заказа
 
-    await db.commit()
+        # Лог статуса
+        db.add(
+            OrderStatusLog(
+                order_id=order.id,
+                changed_by=user.id,
+                old_status=None,
+                new_status="new",
+                changed_at=datetime.now(UTC),
+            )
+        )
 
     # Уведомление админа
     admin = await get_first_admin_with_tg_id(db)
     if admin:
-        import asyncio
-        asyncio.create_task(notify_admin_new_client_order(user.name, order.id, admin.tg_id))
+        background_tasks.add_task(notify_admin_new_client_order, user.name, order.id, admin.tg_id)
 
     await manager.broadcast({"event": "order_created", "id": order.id})
 
@@ -208,6 +207,7 @@ async def create_client_order_bot(
 @router.post("/orders/client/batch")
 async def create_client_batch_orders_bot(
     payload: BotClientBatchOrderRequest,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     _secret: bool = Depends(require_bot_secret),
 ) -> dict:
@@ -217,80 +217,80 @@ async def create_client_batch_orders_bot(
     if user is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Client access required")
 
-    quantities_by_product_id: dict[UUID, int] = {}
-    for item in payload.items:
-        quantities_by_product_id[item.product_id] = quantities_by_product_id.get(item.product_id, 0) + item.quantity
+    async with db.begin():
+        quantities_by_product_id: dict[UUID, int] = {}
+        for item in payload.items:
+            quantities_by_product_id[item.product_id] = quantities_by_product_id.get(item.product_id, 0) + item.quantity
 
-    result = await db.execute(
-        select(Product).where(Product.id.in_(quantities_by_product_id)).with_for_update()
-    )
-    products_by_id = {product.id: product for product in result.scalars().all()}
-
-    for product_id, quantity in quantities_by_product_id.items():
-        product = products_by_id.get(product_id)
-        if product is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Product {product_id} not found")
-        if product.stock_quantity < quantity:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Insufficient stock for {product.title}"
-            )
-
-    route = Route(
-        courier_id=None,
-        created_by=user.id,
-        label=f"Заказ: {user.name}",
-        status="pending"
-    )
-    db.add(route)
-    await db.flush()
-
-    created_orders = []
-    
-    for idx, item in enumerate(payload.items, 1):
-        product = products_by_id[item.product_id]
-
-        order = Order(
-            product_id=item.product_id,
-            quantity=item.quantity,
-            sale_price=product.selling_price,
-            courier_fee=0,
-            customer_name=user.name,
-            customer_phone=user.phone,
-            delivery_address=payload.delivery_address,
-            note=payload.note,
-            status="pending",
-            route_id=route.id,
-            stop_sequence=idx
+        result = await db.execute(
+            select(Product).where(Product.id.in_(quantities_by_product_id)).with_for_update()
         )
-        
-        product.stock_quantity -= item.quantity
-        db.add(order)
-        created_orders.append(order)
+        products_by_id = {product.id: product for product in result.scalars().all()}
 
-    await db.flush() # Получаем ID всех заказов
+        for product_id, quantity in quantities_by_product_id.items():
+            product = products_by_id.get(product_id)
+            if product is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Product {product_id} not found")
+            if product.stock_quantity < quantity:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Insufficient stock for {product.title}"
+                )
+
+        route = Route(
+            courier_id=None,
+            created_by=user.id,
+            label=f"Заказ: {user.name}",
+            status="pending"
+        )
+        db.add(route)
+        await db.flush()
+
+        created_orders = []
+        
+        for idx, item in enumerate(payload.items, 1):
+            product = products_by_id[item.product_id]
+
+            order = Order(
+                product_id=item.product_id,
+                quantity=item.quantity,
+                sale_price=product.selling_price,
+                courier_fee=0,
+                customer_name=user.name,
+                customer_phone=user.phone,
+                delivery_address=payload.delivery_address,
+                note=payload.note,
+                status="pending",
+                route_id=route.id,
+                stop_sequence=idx
+            )
+            
+            product.stock_quantity -= item.quantity
+            db.add(order)
+            created_orders.append(order)
+
+        await db.flush() # Получаем ID всех заказов
+
+        for order in created_orders:
+            db.add(
+                OrderStatusLog(
+                    order_id=order.id,
+                    changed_by=user.id,
+                    old_status=None,
+                    new_status="pending",
+                    changed_at=datetime.now(UTC),
+                )
+            )
 
     for order in created_orders:
-        db.add(
-            OrderStatusLog(
-                order_id=order.id,
-                changed_by=user.id,
-                old_status=None,
-                new_status="pending",
-                changed_at=datetime.now(UTC),
-            )
-        )
         await manager.broadcast({"event": "order_created", "id": order.id})
 
     await manager.broadcast({"event": "route_created", "id": str(route.id)})
 
-    await db.commit()
-
     # Уведомление админа (один раз на всю пачку)
     admin = await get_first_admin_with_tg_id(db)
     if admin:
-        import asyncio
-        asyncio.create_task(notify_admin_new_client_order(user.name, f"пачки ({len(created_orders)} поз.)", admin.tg_id))
+        background_tasks.add_task(notify_admin_new_client_order, user.name, f"пачки ({len(created_orders)} поз.)", admin.tg_id)
 
     return {"status": "ok", "order_ids": [o.id for o in created_orders]}
 
@@ -347,6 +347,7 @@ async def get_courier_orders_bot(
 async def update_order_status_bot(
     id: int,
     payload: BotStatusUpdateRequest,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     _secret: bool = Depends(require_bot_secret),
 ) -> dict:
@@ -395,11 +396,16 @@ async def update_order_status_bot(
     await db.commit()
 
     if payload.new_status == "in_transit" and order.customer_phone:
-        import asyncio
         from services.notification_service import notify_customer_order_dispatched
         
         customer_tg_id = await get_client_tg_id_by_phone(order.customer_phone, db)
-        asyncio.create_task(notify_customer_order_dispatched(order, courier, order.product, customer_tg_id))
+        background_tasks.add_task(
+            notify_customer_order_dispatched, 
+            order.id, 
+            courier.id, 
+            order.product_id, 
+            customer_tg_id
+        )
 
     await manager.broadcast({
         "event": "order_updated",

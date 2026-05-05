@@ -21,14 +21,18 @@ class ConnectionManager:
             return
             
         text_data = json.dumps(message)
-        dead_connections = []
-        for connection in self.active_connections:
+        # Take a snapshot of connections to avoid modification during iteration
+        connections = list(self.active_connections)
+        
+        async def send_to_one(websocket: WebSocket):
             try:
-                await connection.send_text(text_data)
+                await websocket.send_text(text_data)
             except Exception:
-                dead_connections.append(connection)
-                
-        for connection in dead_connections:
-            self.disconnect(connection)
+                self.disconnect(websocket)
+
+        import asyncio
+        tasks = [send_to_one(conn) for conn in connections]
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
 
 manager = ConnectionManager()
