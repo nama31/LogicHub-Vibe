@@ -140,6 +140,7 @@ async def get_bot_catalog(
             "title": p.title,
             "unit": p.unit,
             "stock_quantity": p.stock_quantity,
+            "selling_price": p.selling_price,
         }
         for p in products
     ]

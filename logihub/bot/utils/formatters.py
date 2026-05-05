@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from decimal import Decimal, InvalidOperation
 from html import escape
 
 
@@ -16,6 +17,23 @@ def _h(value: object, fallback: str = "—") -> str:
 
 def _order_id(value: object) -> str:
 	return f"<code>{_h(value)}</code>"
+
+
+def _int_value(value: object) -> int:
+	try:
+		return int(value or 0)
+	except (TypeError, ValueError):
+		return 0
+
+
+def _som_from_tiyins(tiyins: object) -> str:
+	try:
+		amount = Decimal(int(tiyins or 0)) / Decimal(10000)
+	except (TypeError, ValueError, InvalidOperation):
+		amount = Decimal(0)
+	if amount == amount.to_integral():
+		return str(int(amount))
+	return f"{amount:.4f}".rstrip("0").rstrip(".")
 
 
 def _status_label(status: str | None) -> str:
@@ -124,7 +142,10 @@ def format_product_card(product: dict) -> str:
 	title = product.get("title") or product.get("name") or "Товар"
 	stock = product.get("stock_quantity")
 	unit = product.get("unit") or "шт."
-	price = product.get("sale_price_som") or product.get("sale_price")
+	price = product.get("selling_price_som") or product.get("sale_price_som")
+	if price is None:
+		price_tiyins = product.get("selling_price") or product.get("sale_price")
+		price = _som_from_tiyins(price_tiyins)
 
 	lines = [
 		f"📦 <b>{_h(title)}</b>",
@@ -161,11 +182,16 @@ def format_client_order_confirmation(cart: list[dict], delivery_address: str, no
 		f"{index}. {_h(item.get('product_title'))} × {_h(item.get('quantity'))} {_h(item.get('unit'), 'шт.')}"
 		for index, item in enumerate(cart, 1)
 	]
+	total_price_tiyins = sum(
+		_int_value(item.get("selling_price") or item.get("sale_price")) * _int_value(item.get("quantity"))
+		for item in cart
+	)
 	return (
 		"📦 <b>Подтверждение заказа</b>\n\n"
 		f"📦 <b>Товары:</b>\n" + "\n".join(items) + "\n\n"
 		f"📍 <b>Адрес:</b> {_h(delivery_address)}\n"
 		f"<i>Примечание: {_h(note, 'нет')}</i>\n\n"
+		f"💳 <b>Сумма к оплате:</b> {_som_from_tiyins(total_price_tiyins)} сом\n\n"
 		"Проверьте данные и подтвердите оформление."
 	)
 
