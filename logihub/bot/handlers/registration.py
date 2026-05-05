@@ -8,6 +8,7 @@ from bot.core.http_client import BackendClient, BackendClientError
 from bot.keyboards.main_menu import build_main_menu
 from bot.keyboards.client_menu import build_client_main_menu
 from bot.services.auth_service import BotAuthService
+from bot.utils.formatters import format_error_message, format_success_message, format_warning_message
 
 
 router = Router()
@@ -27,7 +28,7 @@ async def contact_handler(
 
 	# Убеждаемся, что контакт принадлежит пользователю
 	if contact.user_id != message.from_user.id:
-		await message.answer("Пожалуйста, поделитесь своим собственным контактом.")
+		await message.answer(format_warning_message("Пожалуйста, поделитесь своим собственным контактом."))
 		return
 
 	tg_id = message.from_user.id
@@ -46,17 +47,21 @@ async def contact_handler(
 		keyboard = build_client_main_menu() if role == "client" else build_main_menu()
 		
 		await message.answer(
-			f"Регистрация успешна! Ваш номер {phone} привязан к аккаунту.\n"
-			"Теперь вы можете полноценно пользоваться ботом.",
+			format_success_message(
+				f"Номер {phone} привязан к аккаунту. Теперь вы можете полноценно пользоваться ботом.",
+				"Регистрация завершена",
+			),
 			reply_markup=keyboard,
 		)
 	except BackendClientError as e:
 		if e.status_code == 404:
 			await message.answer(
-				"Пользователь с таким номером телефона не найден в системе.\n"
-				"Пожалуйста, обратитесь к менеджеру, чтобы он добавил ваш номер в базу."
+				format_warning_message(
+					"Пользователь с таким номером телефона не найден. Обратитесь к менеджеру, чтобы он добавил ваш номер в базу.",
+					"Пользователь не найден",
+				)
 			)
 		else:
-			await message.answer(f"Произошла ошибка при регистрации: {e.detail}")
+			await message.answer(format_error_message(f"Произошла ошибка при регистрации: {e.detail}"))
 	except Exception as e:
-		await message.answer(f"Что-то пошло не так: {str(e)}")
+		await message.answer(format_error_message(f"Что-то пошло не так: {str(e)}"))

@@ -1,138 +1,265 @@
-"""Форматеры сообщений Telegram-бота (строго MarkdownV2)."""
+"""Единые HTML-форматеры сообщений Telegram-бота."""
 
 from __future__ import annotations
 
 import re
+from html import escape
 
 
-def _e(text: str | int | None) -> str:
-    """Экранировать спецсимволы для MarkdownV2.
+def _h(value: object, fallback: str = "—") -> str:
+	"""Безопасно подготовить значение для HTML-разметки Telegram."""
 
-    Символы, требующие экранирования: _ * [ ] ( ) ~ ` > # + - = | { } . !
-    """
-    if text is None:
-        return ""
-    special = r"\_*[]()~`>#+-=|{}.!"
-    return re.sub(r"([" + re.escape(special) + r"])", r"\\\1", str(text))
+	if value is None or value == "":
+		return escape(fallback)
+	return escape(str(value))
+
+
+def _order_id(value: object) -> str:
+	return f"<code>{_h(value)}</code>"
+
+
+def _status_label(status: str | None) -> str:
+	labels = {
+		"pending": "На проверке",
+		"new": "Новый",
+		"assigned": "Назначен",
+		"in_transit": "В пути",
+		"delivered": "Доставлен",
+		"failed": "Проблема",
+	}
+	return labels.get(status or "", status or "—")
+
+
+def _status_emoji(status: str | None) -> str:
+	if status == "delivered":
+		return "✅"
+	if status == "failed":
+		return "⚠️"
+	return "📦"
+
+
+def format_success_message(message: str, title: str = "Готово") -> str:
+	return f"✅ <b>{_h(title)}</b>\n\n{_h(message)}"
+
+
+def format_error_message(message: str, title: str = "Ошибка") -> str:
+	return f"⚠️ <b>{_h(title)}</b>\n\n{_h(message)}"
+
+
+def format_warning_message(message: str, title: str = "Внимание") -> str:
+	return f"⚠️ <b>{_h(title)}</b>\n\n{_h(message)}"
+
+
+def format_welcome_message(user_name: str | None, role: str) -> str:
+	role_text = "курьер" if role == "courier" else "клиент"
+	return (
+		"<b>Главное меню</b>\n\n"
+		f"Здравствуйте, {_h(user_name, 'пользователь')}.\n"
+		f"Вы авторизованы в LogiHub как {role_text}."
+	)
+
+
+def format_registration_prompt() -> str:
+	return (
+		"<b>Авторизация LogiHub</b>\n\n"
+		"Здравствуйте. Вы пока не зарегистрированы в системе.\n"
+		"Пожалуйста, поделитесь номером телефона для проверки доступа."
+	)
+
+
+def format_help_message() -> str:
+	return (
+		"<b>Помощь LogiHub</b>\n\n"
+		"Используйте кнопки главного меню для работы с заказами и маршрутами.\n"
+		"Действия по заказу доступны через inline-кнопки под карточкой."
+	)
+
+
+def format_order_card(order: dict, role: str = "courier") -> str:
+	"""Карточка заказа для курьера или клиента."""
+
+	product_title = order.get("product_title") or order.get("product", {}).get("title") or "Товар"
+	quantity = order.get("quantity", 1)
+	unit = order.get("unit") or "шт."
+	status = order.get("status")
+
+	lines = [
+		"📦 <b>Заказ</b>",
+		f"<i>ID: {_order_id(order.get('id'))}</i>",
+		"",
+		f"📦 <b>Товар:</b> {_h(product_title)} × {_h(quantity)} {_h(unit)}",
+	]
+
+	if status:
+		lines.append(f"{_status_emoji(status)} <b>Статус:</b> {_h(_status_label(status))}")
+
+	address = order.get("delivery_address")
+	if address:
+		lines.append(f"📍 <b>Адрес:</b> {_h(address)}")
+
+	if role != "client":
+		lines.extend(
+			[
+				f"👤 <b>Клиент:</b> {_h(order.get('customer_name'), 'не указано')}",
+				f"📞 <b>Телефон:</b> {_h(order.get('customer_phone'), 'не указан')}",
+			]
+		)
+
+	courier_fee = order.get("courier_fee_som") or order.get("courier_fee")
+	if courier_fee:
+		lines.append(f"💳 <b>Оплата курьеру:</b> {_h(courier_fee)} сом")
+
+	note = order.get("note")
+	if note:
+		lines.extend(["", f"<i>Примечание: {_h(note)}</i>"])
+
+	return "\n".join(lines)
+
+
+def format_orders_header(count: int, title: str) -> str:
+	return f"📦 <b>{_h(title)}</b>\n\nНайдено заказов: <b>{_h(count)}</b>."
+
+
+def format_product_card(product: dict) -> str:
+	title = product.get("title") or product.get("name") or "Товар"
+	stock = product.get("stock_quantity")
+	unit = product.get("unit") or "шт."
+	price = product.get("sale_price_som") or product.get("sale_price")
+
+	lines = [
+		f"📦 <b>{_h(title)}</b>",
+		f"📦 <b>Остаток:</b> {_h(stock)} {_h(unit)}",
+	]
+	if price:
+		lines.append(f"💳 <b>Цена:</b> {_h(price)} сом")
+	return "\n".join(lines)
+
+
+def format_catalog_intro() -> str:
+	return "🛍️ <b>Каталог товаров</b>\n\nВыберите товар для добавления в заказ."
+
+
+def format_selected_product(product: dict) -> str:
+	return (
+		"📦 <b>Товар выбран</b>\n\n"
+		f"{format_product_card(product)}\n\n"
+		"Введите необходимое количество."
+	)
+
+
+def format_cart_update(product_title: str, quantity: int, unit: str, cart_size: int) -> str:
+	return (
+		"✅ <b>Товар добавлен</b>\n\n"
+		f"📦 <b>Товар:</b> {_h(product_title)} × {_h(quantity)} {_h(unit)}\n"
+		f"<b>Позиций в корзине:</b> {_h(cart_size)}\n\n"
+		"Выберите следующее действие."
+	)
+
+
+def format_client_order_confirmation(cart: list[dict], delivery_address: str, note: str | None) -> str:
+	items = [
+		f"{index}. {_h(item.get('product_title'))} × {_h(item.get('quantity'))} {_h(item.get('unit'), 'шт.')}"
+		for index, item in enumerate(cart, 1)
+	]
+	return (
+		"📦 <b>Подтверждение заказа</b>\n\n"
+		f"📦 <b>Товары:</b>\n" + "\n".join(items) + "\n\n"
+		f"📍 <b>Адрес:</b> {_h(delivery_address)}\n"
+		f"<i>Примечание: {_h(note, 'нет')}</i>\n\n"
+		"Проверьте данные и подтвердите оформление."
+	)
+
+
+def format_client_order_success(order_ids: list, cart_size: int) -> str:
+	ids = ", ".join(_order_id(order_id) for order_id in order_ids) or "—"
+	return (
+		"✅ <b>Заказ успешно оформлен</b>\n\n"
+		f"<b>ID заказов:</b> {ids}\n"
+		f"<b>Всего позиций:</b> {_h(cart_size)}\n\n"
+		"Менеджер свяжется с вами для подтверждения цены и времени доставки."
+	)
+
+
+def format_client_orders_list(orders: list[dict]) -> str:
+	lines = ["📦 <b>Мои заказы</b>", ""]
+	for order in orders[:10]:
+		lines.append(format_order_card(order, role="client"))
+		lines.append("")
+	return "\n".join(lines).strip()
 
 
 def format_route_card(route: dict) -> str:
-    """Карточка назначения маршрута (пуш от бекенда).
+	label = route.get("label") or f"Маршрут #{str(route.get('id', ''))[:8]}"
+	stops_total = route.get("stops_total", 0)
 
-    Пример:
-        📦 *Новый маршрут назначен*
-
-        Утренний рейс · 4 остановки
-        Нажми кнопку ниже, чтобы начать.
-    """
-    label = _e(route.get("label") or f"Маршрут #{str(route.get('id', ''))[:8]}")
-    stops_total = _e(route.get("stops_total", 0))
-
-    return (
-        "📦 *Новый маршрут назначен*\n\n"
-        f"{label} · {stops_total} остановок\n"
-        "Нажми кнопку ниже, чтобы начать\\."
-    )
+	return (
+		"📦 <b>Новый маршрут назначен</b>\n\n"
+		f"<b>Маршрут:</b> {_h(label)}\n"
+		f"<b>Остановок:</b> {_h(stops_total)}\n\n"
+		"Нажмите кнопку ниже, чтобы начать выполнение."
+	)
 
 
 def format_stop_card(route: dict, stop: dict, stop_num: int) -> str:
-    """Карточка активной остановки — показывается после старта или после завершения предыдущей.
+	stops_total = route.get("stops_total", 0)
+	remaining = max(stops_total - stop_num, 0)
+	label = route.get("label") or f"Маршрут #{str(route.get('id', ''))[:8]}"
+	note = stop.get("note")
 
-    Пример:
-        🗺 Маршрут #12 · Остановка 2 из 4
-        ━━━━━━━━━━━━━━━━
-        📍 пр. Манаса 44, кв. 12
-        👤 Айгуль Асанова · +996 700 123 456
-        📦 Продукт А × 3 коробки
-
-        💬 Позвонить за 30 минут
-        ━━━━━━━━━━━━━━━━
-        ⏳ Осталось: 2 остановки
-    """
-    stops_total = route.get("stops_total", 0)
-    remaining = stops_total - stop_num
-
-    label = _e(route.get("label") or f"Маршрут \\#{str(route.get('id', ''))[:8]}")
-    address = _e(stop.get("delivery_address", "—"))
-    customer_name = _e(stop.get("customer_name") or "не указано")
-    customer_phone = _e(stop.get("customer_phone") or "не указан")
-    product_title = _e(stop.get("product_title") or "Товар")
-    quantity = _e(stop.get("quantity", 1))
-    note = stop.get("note")
-
-    lines = [
-        f"🗺 *{label} · Остановка {_e(stop_num)} из {_e(stops_total)}*",
-        "━━━━━━━━━━━━━━━━",
-        f"📍 {address}",
-        f"👤 {customer_name} · {customer_phone}",
-        f"📦 {product_title} × {quantity}",
-    ]
-    if note:
-        lines.append("")
-        lines.append(f"💬 _{_e(note)}_")
-    lines.append("━━━━━━━━━━━━━━━━")
-    lines.append(f"⏳ Осталось: {_e(remaining)} остановок")
-
-    return "\n".join(lines)
+	lines = [
+		f"📍 <b>{_h(label)}</b>",
+		f"<i>Остановка: {_h(stop_num)} из {_h(stops_total)}</i>",
+		"",
+		f"📍 <b>Адрес:</b> {_h(stop.get('delivery_address'))}",
+		f"👤 <b>Клиент:</b> {_h(stop.get('customer_name'), 'не указано')}",
+		f"📞 <b>Телефон:</b> {_h(stop.get('customer_phone'), 'не указан')}",
+		f"📦 <b>Товар:</b> {_h(stop.get('product_title'), 'Товар')} × {_h(stop.get('quantity', 1))}",
+	]
+	if note:
+		lines.extend(["", f"<i>Примечание: {_h(note)}</i>"])
+	lines.extend(["", f"<b>Осталось остановок:</b> {_h(remaining)}"])
+	return "\n".join(lines)
 
 
 def format_completion_card(route: dict, courier_name: str) -> str:
-    """Карточка завершения всего маршрута.
+	label = route.get("label") or f"Маршрут #{str(route.get('id', ''))[:8]}"
+	stops_total = route.get("stops_total", 0)
+	stops_delivered = route.get("stops_delivered", 0)
+	stops_failed = route.get("stops_failed", 0)
 
-    Пример:
-        🎉 Маршрут завершён!
-
-        Маршрут #12
-        ✅ Доставлено: 3 из 4
-        ⚠️ Не доставлено: 1
-
-        Отличная работа, Бекзат!
-    """
-    label = _e(route.get("label") or f"Маршрут \\#{str(route.get('id', ''))[:8]}")
-    stops_total = route.get("stops_total", 0)
-    stops_delivered = route.get("stops_delivered", 0)
-    stops_failed = route.get("stops_failed", 0)
-
-    return (
-        "🎉 *Маршрут завершён\\!*\n\n"
-        f"{label}\n"
-        f"✅ Доставлено: {_e(stops_delivered)} из {_e(stops_total)}\n"
-        f"⚠️ Не доставлено: {_e(stops_failed)}\n\n"
-        f"Отличная работа, {_e(courier_name)}\\!"
-    )
+	return (
+		"✅ <b>Маршрут завершён</b>\n\n"
+		f"<b>Маршрут:</b> {_h(label)}\n"
+		f"✅ <b>Доставлено:</b> {_h(stops_delivered)} из {_h(stops_total)}\n"
+		f"⚠️ <b>Проблемы:</b> {_h(stops_failed)}\n\n"
+		f"Отличная работа, {_h(courier_name)}."
+	)
 
 
 def format_daily_summary(stats: dict, date_str: str) -> str:
-    """Итоги дня — ежедневный дайджест в 19:00.
+	routes_count = stats.get("routes_count", 0)
+	delivered = stats.get("stops_delivered", 0)
+	total = stats.get("stops_total", 0)
+	failed = stats.get("stops_failed", 0)
 
-    Пример:
-        📊 Итоги дня · 28 апреля
-
-        Маршрутов: 2
-        Доставлено: 7 из 8 остановок
-        Не доставлено: 1
-    """
-    routes_count = _e(stats.get("routes_count", 0))
-    delivered = _e(stats.get("stops_delivered", 0))
-    total = _e(stats.get("stops_total", 0))
-    failed = _e(stats.get("stops_failed", 0))
-    date_escaped = _e(date_str)
-
-    return (
-        f"📊 *Итоги дня · {date_escaped}*\n\n"
-        f"Маршрутов: {routes_count}\n"
-        f"Доставлено: {delivered} из {total} остановок\n"
-        f"Не доставлено: {failed}"
-    )
+	return (
+		f"✅ <b>Итоги дня · {_h(date_str)}</b>\n\n"
+		f"<b>Маршрутов:</b> {_h(routes_count)}\n"
+		f"✅ <b>Доставлено:</b> {_h(delivered)} из {_h(total)} остановок\n"
+		f"⚠️ <b>Проблемы:</b> {_h(failed)}"
+	)
 
 
 def make_maps_link(address: str) -> str:
-    """Формирует ссылку на Yandex Maps с предзаполненным адресом."""
-    from urllib.parse import quote
-    return f"https://yandex.com/maps/?text={quote(address)}"
+	"""Формирует ссылку на Yandex Maps с предзаполненным адресом."""
+
+	from urllib.parse import quote
+
+	return f"https://yandex.com/maps/?text={quote(address)}"
 
 
 def make_phone_link(phone: str) -> str:
-    """Формирует ссылку для звонка (tel: protocol)."""
-    digits = re.sub(r"[^\d+]", "", phone)
-    return f"tel:{digits}"
+	"""Формирует ссылку для звонка."""
+
+	digits = re.sub(r"[^\d+]", "", phone)
+	return f"tel:{digits}"
