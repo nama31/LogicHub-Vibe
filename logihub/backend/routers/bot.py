@@ -159,7 +159,7 @@ async def create_client_order_bot(
     if user is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Client access required")
 
-    async with db.begin():
+    try:
         product = await _get_product_for_update(payload.product_id, db)
         if product is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
@@ -193,6 +193,10 @@ async def create_client_order_bot(
                 changed_at=datetime.now(UTC),
             )
         )
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        raise e
 
     # Уведомление админа
     admin = await get_first_admin_with_tg_id(db)
@@ -217,7 +221,7 @@ async def create_client_batch_orders_bot(
     if user is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Client access required")
 
-    async with db.begin():
+    try:
         quantities_by_product_id: dict[UUID, int] = {}
         for item in payload.items:
             quantities_by_product_id[item.product_id] = quantities_by_product_id.get(item.product_id, 0) + item.quantity
@@ -281,6 +285,10 @@ async def create_client_batch_orders_bot(
                     changed_at=datetime.now(UTC),
                 )
             )
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        raise e
 
     for order in created_orders:
         await manager.broadcast({"event": "order_created", "id": order.id})

@@ -12,6 +12,7 @@ import httpx
 
 from aiogram import Bot
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 from core.config import settings
 from core.database import async_session_maker
@@ -48,7 +49,6 @@ async def notify_route_started(route_id: UUID) -> None:
             return
 
         # Получаем количество остановок
-        from sqlalchemy import func
         stops_total = await db.scalar(
             select(func.count(Order.id)).where(Order.route_id == route_id)
         )
