@@ -6,9 +6,6 @@ import asyncio
 import html
 import logging
 import re
-from urllib.parse import urlencode
-from urllib.error import HTTPError
-from urllib.request import Request, urlopen
 
 import httpx
 
@@ -253,7 +250,7 @@ async def notify_client_dispatch(order_id: int, courier_name: str, courier_phone
     """Хелпер для уведомления клиента при переходе заказа в in_transit (для маршрутов)."""
     from sqlalchemy import select
     from models.order import Order
-    from models.user import User
+    from services.bot_lookup_service import get_client_tg_id_by_phone
 
     # Fetch order and product
     stmt = select(Order).options(selectinload(Order.product)).where(Order.id == order_id)
@@ -263,12 +260,7 @@ async def notify_client_dispatch(order_id: int, courier_name: str, courier_phone
         return
 
     # Find client tg_id
-    customer_tg_id = None
-    if order.customer_phone:
-        client_user = await db.scalar(
-            select(User).where(User.phone == order.customer_phone, User.role == "client")
-        )
-        customer_tg_id = client_user.tg_id if client_user else None
+    customer_tg_id = await get_client_tg_id_by_phone(order.customer_phone, db)
 
     # Dummy courier object for compatibility
     class MockCourier:

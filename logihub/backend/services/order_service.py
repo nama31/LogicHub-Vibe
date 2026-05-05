@@ -6,12 +6,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from constants.price import som_to_tiyins, tiyins_to_som
+from constants.price import som_to_tiyins
 from models.order_status_log import OrderStatusLog
 from models.product import Product
 from models.user import User
 from schemas.order import OrderCreate, OrderUpdate
 from models.order import Order
+from services.serializers import serialize_order_collection, serialize_order_prices
 from uuid import UUID
 
 async def get_orders(
@@ -34,11 +35,15 @@ async def get_orders(
 
     result = await db.execute(statement)
     orders = list(result.scalars().all())
-    _serialize_orders(orders)
-    return orders
+    return serialize_order_collection(orders)
 
 async def get_order_by_id(id: int, db: AsyncSession) -> Order:
     """Получить заказ по ID."""
+    order = await _get_order_with_relationships(id, db)
+    return serialize_order_prices(order)
+
+async def _get_order_with_relationships(id: int, db: AsyncSession) -> Order:
+    """Получить заказ со связями продукта и курьера."""
     result = await db.execute(
         select(Order)
         .options(selectinload(Order.product), selectinload(Order.courier))
@@ -47,7 +52,6 @@ async def get_order_by_id(id: int, db: AsyncSession) -> Order:
     order = result.scalar_one_or_none()
     if order is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
-    _serialize_order(order)
     return order
 
 async def get_order_timeline(id: int, db: AsyncSession) -> List[OrderStatusLog]:
@@ -94,16 +98,9 @@ async def create_order(data: OrderCreate, db: AsyncSession, changed_by: User | N
     db.add(order)
     await db.commit()
     
-    # Рефетчим со связями для безопасной сериализации
-    statement = (
-        select(Order)
-        .options(selectinload(Order.product), selectinload(Order.courier))
-        .where(Order.id == order.id)
-    )
-    result = await db.execute(statement)
-    order = result.scalar_one()
+    order = await _get_order_with_relationships(order.id, db)
 
-    _serialize_order(order)
+    serialize_order_prices(order)
     
     from core.websocket import manager
     await manager.broadcast({"event": "order_created", "id": order.id})
@@ -156,16 +153,9 @@ async def update_order(id: int, data: OrderUpdate, db: AsyncSession, changed_by:
 
     await db.commit()
 
-    # Рефетчим со связями для безопасной сериализации
-    statement = (
-        select(Order)
-        .options(selectinload(Order.product), selectinload(Order.courier))
-        .where(Order.id == id)
-    )
-    result = await db.execute(statement)
-    order = result.scalar_one()
+    order = await _get_order_with_relationships(id, db)
 
-    _serialize_order(order)
+    serialize_order_prices(order)
 
     from core.websocket import manager
     await manager.broadcast({"event": "order_updated", "id": order.id})
@@ -220,17 +210,9 @@ async def assign_order(id: int, courier_id: UUID, db: AsyncSession, changed_by: 
 
     await db.commit()
     
-    # Рефетчим объект целиком со всеми связями после коммита, чтобы избежать MissingGreenlet при сериализации
-    # и гарантировать наличие данных для фоновой задачи.
-    statement = (
-        select(Order)
-        .options(selectinload(Order.product), selectinload(Order.courier))
-        .where(Order.id == id)
-    )
-    result = await db.execute(statement)
-    order = result.scalar_one()
+    order = await _get_order_with_relationships(id, db)
     
-    _serialize_order(order)
+    serialize_order_prices(order)
 
     from core.websocket import manager
     await manager.broadcast({"event": "order_assigned", "id": order.id})
@@ -249,26 +231,6 @@ async def _create_status_log(db: AsyncSession, order_id: int, changed_by: UUID, 
             new_status=new_status,
         )
     )
-
-
-def _serialize_product(product: Product) -> Product:
-    product.purchase_price_som = tiyins_to_som(product.purchase_price)
-    return product
-
-
-def _serialize_order(order: Order) -> Order:
-    order.sale_price_som = tiyins_to_som(order.sale_price)
-    order.courier_fee_som = tiyins_to_som(order.courier_fee)
-    order.net_profit_som = tiyins_to_som((order.sale_price - getattr(order.product, "purchase_price", 0)) * order.quantity - order.courier_fee)
-    if order.product is not None:
-        order.product = _serialize_product(order.product)
-    return order
-
-
-def _serialize_orders(orders: List[Order]) -> List[Order]:
-    for order in orders:
-        _serialize_order(order)
-    return orders
 
 import csv
 import io

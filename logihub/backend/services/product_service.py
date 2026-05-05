@@ -5,9 +5,10 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from constants.price import som_to_tiyins, tiyins_to_som
+from constants.price import som_to_tiyins
 from schemas.product import ProductCreate, ProductUpdate
 from models.product import Product
+from services.serializers import serialize_product_prices
 from uuid import UUID
 
 async def get_products(db: AsyncSession) -> List[Product]:
@@ -17,15 +18,9 @@ async def get_products(db: AsyncSession) -> List[Product]:
     products = list(result.scalars().all())
 
     for product in products:
-        _serialize_product(product)
+        serialize_product_prices(product)
 
     return products
-
-def _serialize_product(product: Product) -> Product:
-    """Сериализация цен товара для ответа."""
-    product.purchase_price_som = tiyins_to_som(product.purchase_price)
-    product.selling_price_som = tiyins_to_som(product.selling_price)
-    return product
 
 async def create_product(data: ProductCreate, db: AsyncSession) -> Product:
     """Создать товар."""
@@ -40,7 +35,7 @@ async def create_product(data: ProductCreate, db: AsyncSession) -> Product:
     db.add(product)
     await db.commit()
     await db.refresh(product)
-    return _serialize_product(product)
+    return serialize_product_prices(product)
 
 async def update_product(id: UUID, data: ProductUpdate, db: AsyncSession) -> Product:
     """Обновить товар."""
@@ -61,7 +56,7 @@ async def update_product(id: UUID, data: ProductUpdate, db: AsyncSession) -> Pro
 
     await db.commit()
     await db.refresh(product)
-    return _serialize_product(product)
+    return serialize_product_prices(product)
 
 async def delete_product(id: UUID, db: AsyncSession) -> None:
     """Удалить товар."""
@@ -84,7 +79,7 @@ async def restock_product(id: UUID, amount: int, db: AsyncSession) -> Product:
     await db.commit()
     await db.refresh(product)
     
-    _serialize_product(product)
+    serialize_product_prices(product)
     
     from core.websocket import manager
     await manager.broadcast({"event": "product_restocked", "id": str(product.id), "amount": amount})

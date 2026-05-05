@@ -10,12 +10,3 @@ STATUS_TRANSITIONS = {
     "delivered":  [],
     "failed":     [],
 }
-
-STATUS_LABELS_RU = {
-    "pending":    "На проверке",
-    "new":        "Новый",
-    "assigned":   "Назначен",
-    "in_transit": "В пути",
-    "delivered":  "Доставлен",
-    "failed":     "Отказ",
-}

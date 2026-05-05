@@ -19,6 +19,12 @@ from models.user import User
 
 from models.product import Product
 from models.route import Route
+from services.bot_lookup_service import (
+    get_active_client_by_tg_id,
+    get_active_courier_by_tg_id,
+    get_client_tg_id_by_phone,
+    get_first_admin_with_tg_id,
+)
 from services.notification_service import notify_admin_new_client_order
 
 router = APIRouter(prefix="/bot", tags=["bot"])
@@ -147,8 +153,8 @@ async def create_client_order_bot(
 ) -> dict:
     """Создание заказа клиентом через бот."""
 
-    user = await db.scalar(select(User).where(User.tg_id == payload.tg_id))
-    if user is None or not user.is_active or user.role != "client":
+    user = await get_active_client_by_tg_id(payload.tg_id, db)
+    if user is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Client access required")
 
     product = await db.get(Product, payload.product_id)
@@ -188,7 +194,7 @@ async def create_client_order_bot(
     await db.commit()
 
     # Уведомление админа
-    admin = await db.scalar(select(User).where(User.role == "admin", User.tg_id.isnot(None)))
+    admin = await get_first_admin_with_tg_id(db)
     if admin:
         import asyncio
         asyncio.create_task(notify_admin_new_client_order(user.name, order.id, admin.tg_id))
@@ -206,8 +212,8 @@ async def create_client_batch_orders_bot(
 ) -> dict:
     """Создание нескольких заказов (корзина) клиентом через бот."""
 
-    user = await db.scalar(select(User).where(User.tg_id == payload.tg_id))
-    if user is None or not user.is_active or user.role != "client":
+    user = await get_active_client_by_tg_id(payload.tg_id, db)
+    if user is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Client access required")
 
     # 1. Создаем маршрут (черновик на проверке)
@@ -270,13 +276,9 @@ async def create_client_batch_orders_bot(
     await db.commit()
 
     # Уведомление админа (один раз на всю пачку)
-    admin = await db.scalar(select(User).where(User.role == "admin", User.tg_id.isnot(None)))
+    admin = await get_first_admin_with_tg_id(db)
     if admin:
         import asyncio
-        # Уведомляем о пачке, указывая количество заказов
-        order_ids_str = ", ".join([f"#{o.id}" for o in created_orders])
-        message = f"🛒 Новый заказ (корзина) от <b>{user.name}</b>\nКол-во позиций: {len(created_orders)}\nID: {order_ids_str}"
-        
         asyncio.create_task(notify_admin_new_client_order(user.name, f"пачки ({len(created_orders)} поз.)", admin.tg_id))
 
     return {"status": "ok", "order_ids": [o.id for o in created_orders]}
@@ -355,8 +357,8 @@ async def update_order_status_bot(
     if payload.new_status not in allowed_statuses:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid status transition")
 
-    courier = await db.scalar(select(User).where(User.tg_id == payload.tg_id))
-    if courier is None or not courier.is_active or courier.role != "courier":
+    courier = await get_active_courier_by_tg_id(payload.tg_id, db)
+    if courier is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Courier not found")
 
     old_status = order.status
@@ -385,12 +387,7 @@ async def update_order_status_bot(
         import asyncio
         from services.notification_service import notify_customer_order_dispatched
         
-        # Попытка найти клиента по номеру телефона, чтобы отправить уведомление в бот
-        client_user = await db.scalar(
-            select(User).where(User.phone == order.customer_phone, User.role == "client")
-        )
-        customer_tg_id = client_user.tg_id if client_user else None
-        
+        customer_tg_id = await get_client_tg_id_by_phone(order.customer_phone, db)
         asyncio.create_task(notify_customer_order_dispatched(order, courier, order.product, customer_tg_id))
 
     await manager.broadcast({
