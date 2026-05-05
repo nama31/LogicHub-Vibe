@@ -54,7 +54,13 @@ async def select_product(callback: CallbackQuery, state: FSMContext, order_servi
         await callback.answer("Товар не найден или закончился.", show_alert=True)
         return
 
-    await state.update_data(product_id=product_id, product_title=product['title'], max_qty=product['stock_quantity'], unit=product['unit'])
+    await state.update_data(
+        product_id=product_id,
+        product_title=product['title'],
+        max_qty=product['stock_quantity'],
+        unit=product['unit'],
+        selling_price=product.get('selling_price', 0),
+    )
     
     await callback.message.edit_text(
         format_selected_product(product)
@@ -85,7 +91,8 @@ async def enter_quantity(message: Message, state: FSMContext):
         "product_id": data['product_id'],
         "product_title": data['product_title'],
         "quantity": qty,
-        "unit": data['unit']
+        "unit": data['unit'],
+        "selling_price": data.get('selling_price', 0),
     }
     
     cart = data.get('cart', [])
