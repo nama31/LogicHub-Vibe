@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, status as http_status
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, status as http_status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.dependencies import get_db, require_admin, require_bot_secret
@@ -41,12 +41,21 @@ async def create_route(
 async def list_routes(
     route_status: str | None = None,
     courier_id: UUID | None = None,
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
 ) -> RouteListResponse:
     """Список маршрутов с фильтрацией (admin)."""
-    routes = await route_service.list_routes(db, route_status=route_status, courier_id=courier_id)
-    return RouteListResponse(total=len(routes), routes=routes)
+    routes = await route_service.list_routes(
+        db,
+        route_status=route_status,
+        courier_id=courier_id,
+        limit=limit,
+        offset=offset,
+    )
+    total = await route_service.count_routes(db, route_status=route_status, courier_id=courier_id)
+    return RouteListResponse(total=total, routes=routes)
 
 
 @router.get("/{route_id}", response_model=RouteOut)
@@ -154,12 +163,7 @@ async def get_active_route_for_bot(
 ) -> RouteOut | None:
     """Получить активный маршрут курьера для Telegram-бота."""
 
-    routes = await route_service.list_routes(db, route_status="active")
-    for route_item in routes:
-        courier = route_item.courier
-        if courier is not None and courier.tg_id == tg_id:
-            return await route_service.get_route(route_item.id, db)
-    return None
+    return await route_service.get_active_route_for_courier_tg_id(tg_id, db)
 
 
 @bot_router.get("/by-id/{route_id}", response_model=RouteOut)

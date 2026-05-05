@@ -1,8 +1,11 @@
 """Роутер аналитики."""
 
+import logging
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 import redis.asyncio as redis
+from redis.exceptions import RedisError
 
 from core.config import settings
 from core.dependencies import get_db, require_admin
@@ -24,6 +27,7 @@ from schemas.analytics import (
 )
 
 router = APIRouter(prefix="/analytics", tags=["analytics"], dependencies=[Depends(require_admin)])
+logger = logging.getLogger(__name__)
 
 redis_client = redis.from_url(settings.redis_url, decode_responses=True)
 
@@ -31,13 +35,21 @@ redis_client = redis.from_url(settings.redis_url, decode_responses=True)
 async def get_summary(db: AsyncSession = Depends(get_db)) -> SummaryOut:
     """Сводная аналитика (admin)."""
 
-    cached = await redis_client.get("analytics:summary")
+    try:
+        cached = await redis_client.get("analytics:summary")
+    except RedisError as exc:
+        logger.warning("Redis analytics summary cache read failed: %s", exc)
+        cached = None
+
     if cached:
         return SummaryOut.model_validate_json(cached)
 
     summary = await get_summary_service(db)
     
-    await redis_client.set("analytics:summary", summary.model_dump_json(), ex=60)
+    try:
+        await redis_client.set("analytics:summary", summary.model_dump_json(), ex=60)
+    except RedisError as exc:
+        logger.warning("Redis analytics summary cache write failed: %s", exc)
     
     return summary
 

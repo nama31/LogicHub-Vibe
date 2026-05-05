@@ -18,7 +18,9 @@ from uuid import UUID
 async def get_orders(
     db: AsyncSession, 
     status: str | None = None, 
-    courier_id: UUID | None = None
+    courier_id: UUID | None = None,
+    limit: int | None = 100,
+    offset: int = 0,
 ) -> List[Order]:
     """Получить заказы с фильтрацией."""
 
@@ -32,6 +34,9 @@ async def get_orders(
         statement = statement.where(Order.status == status)
     if courier_id:
         statement = statement.where(Order.courier_id == courier_id)
+
+    if limit is not None:
+        statement = statement.limit(limit).offset(offset)
 
     result = await db.execute(statement)
     orders = list(result.scalars().all())
@@ -66,7 +71,7 @@ async def get_order_timeline(id: int, db: AsyncSession) -> List[OrderStatusLog]:
 async def create_order(data: OrderCreate, db: AsyncSession, changed_by: User | None = None) -> Order:
     """Создать заказ."""
 
-    product = await db.get(Product, data.product_id)
+    product = await _get_product_for_update(data.product_id, db)
     if product is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
 
@@ -129,8 +134,8 @@ async def update_order(id: int, data: OrderUpdate, db: AsyncSession, changed_by:
     new_quantity = update_data.get("quantity", order.quantity)
 
     if new_product_id != original_product_id or new_quantity != original_quantity:
-        current_product = await db.get(Product, original_product_id)
-        new_product = await db.get(Product, new_product_id)
+        current_product = await _get_product_for_update(original_product_id, db)
+        new_product = await _get_product_for_update(new_product_id, db)
         if new_product is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
 
@@ -232,12 +237,16 @@ async def _create_status_log(db: AsyncSession, order_id: int, changed_by: UUID, 
         )
     )
 
+
+async def _get_product_for_update(product_id: UUID, db: AsyncSession) -> Product | None:
+    return await db.scalar(select(Product).where(Product.id == product_id).with_for_update())
+
 import csv
 import io
 
 async def export_orders_csv(db: AsyncSession, status: str | None = None, courier_id: UUID | None = None) -> str:
     """Экспорт заказов в CSV."""
-    orders = await get_orders(db, status=status, courier_id=courier_id)
+    orders = await get_orders(db, status=status, courier_id=courier_id, limit=None)
     
     output = io.StringIO()
     writer = csv.writer(output)

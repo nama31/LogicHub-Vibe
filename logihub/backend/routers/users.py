@@ -1,6 +1,6 @@
 """Роутер пользователей."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,12 +13,14 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 @router.get("", response_model=List[UserOut])
 async def get_users(
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
     _auth: UserOut | None = Depends(require_admin_or_bot_secret),
 ) -> List[UserOut]:
     """Получение списка пользователей (admin)."""
 
-    return await get_users_service(db)
+    return await get_users_service(db, limit=limit, offset=offset)
 
 @router.post("", response_model=UserOut)
 async def create_user(

@@ -1,6 +1,6 @@
 """Роутер заказов."""
 
-from fastapi import APIRouter, Depends, BackgroundTasks
+from fastapi import APIRouter, Depends, BackgroundTasks, Query
 from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,11 +17,13 @@ router = APIRouter(prefix="/orders", tags=["orders"], dependencies=[Depends(requ
 async def get_orders(
     status: str | None = None,
     courier_id: UUID | None = None,
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db)
 ) -> List[OrderListOut]:
     """Получение списка заказов (admin)."""
 
-    return await get_orders_service(db, status=status, courier_id=courier_id)
+    return await get_orders_service(db, status=status, courier_id=courier_id, limit=limit, offset=offset)
 
 from fastapi.responses import StreamingResponse
 from services.order_service import export_orders_csv
