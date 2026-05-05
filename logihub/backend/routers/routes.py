@@ -9,7 +9,6 @@ from core.dependencies import get_db, require_admin, require_bot_secret
 from models.user import User
 from schemas.route import (
     RouteCreate,
-    RouteListItem,
     RouteListResponse,
     RouteOut,
     RouteUpdate,
