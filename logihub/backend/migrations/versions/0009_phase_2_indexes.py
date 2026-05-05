@@ -1,6 +1,6 @@
 """add phase 2 hot path indexes"""
 
-revision = "0009_add_phase_2_hot_path_indexes"
+revision = "0009_phase_2_indexes"
 down_revision = "5235152486c5"
 branch_labels = None
 depends_on = None

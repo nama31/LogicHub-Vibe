@@ -100,18 +100,12 @@ async def start_route(
     route_out = await route_service.start_route(route_id, db)
     
     # 1. Уведомление курьеру
-    background_tasks.add_task(notify_route_started, route_out)
+    background_tasks.add_task(notify_route_started, route_out.id)
     
     # 2. Уведомление первому клиенту (заказ которого перешел в in_transit)
     first_in_transit = next((s for s in route_out.stops if s.status == "in_transit"), None)
     if first_in_transit:
-        background_tasks.add_task(
-            notify_client_dispatch, 
-            first_in_transit.id, 
-            route_out.courier.name, 
-            route_out.courier.phone, 
-            db
-        )
+        background_tasks.add_task(notify_client_dispatch, first_in_transit.id)
         
     return route_out
 
@@ -144,13 +138,7 @@ async def complete_stop(
     # Уведомление следующему клиенту (чей заказ перешел в in_transit)
     next_in_transit = next((s for s in route_out.stops if s.status == "in_transit"), None)
     if next_in_transit:
-        background_tasks.add_task(
-            notify_client_dispatch, 
-            next_in_transit.id, 
-            route_out.courier.name, 
-            route_out.courier.phone, 
-            db
-        )
+        background_tasks.add_task(notify_client_dispatch, next_in_transit.id)
 
     return route_out
 
