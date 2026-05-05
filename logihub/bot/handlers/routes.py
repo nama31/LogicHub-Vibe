@@ -19,29 +19,27 @@ from bot.core.http_client import BackendClient, BackendClientError
 from bot.utils.formatters import (
     format_completion_card,
     format_stop_card,
+    format_success_message,
     make_maps_link,
-    make_phone_link,
 )
 
 router = Router()
 
 
-def _build_stop_keyboard(route_id: str, stop_id: int, phone: str | None, address: str) -> InlineKeyboardMarkup:
+def _build_stop_keyboard(route_id: str, stop_id: int, address: str) -> InlineKeyboardMarkup:
 	"""Кнопки действий для текущей остановки."""
 	buttons: list[list[InlineKeyboardButton]] = []
 
-	# Row 1: Map (phone is clickable in text)
-	row1 = [InlineKeyboardButton(text="🗺 Навигатор", url=make_maps_link(address))]
+	row1 = [InlineKeyboardButton(text="[ 📍 Открыть адрес ]", url=make_maps_link(address))]
 	buttons.append(row1)
 
-	# Row 2: Delivered + Problem
 	buttons.append([
 		InlineKeyboardButton(
-			text="✅ Доставлено",
+			text="[ ✅ Доставлено ]",
 			callback_data=f"stop_done:{route_id}:{stop_id}:delivered",
 		),
 		InlineKeyboardButton(
-			text="⚠️ Проблема",
+			text="[ ⚠️ Проблема ]",
 			callback_data=f"stop_problem:{route_id}:{stop_id}",
 		),
 	])
@@ -52,10 +50,10 @@ def _build_stop_keyboard(route_id: str, stop_id: int, phone: str | None, address
 def _build_problem_keyboard(route_id: str, stop_id: int) -> InlineKeyboardMarkup:
 	"""Выбор причины неудачи."""
 	reasons = [
-		("Не открывает дверь", "door"),
-		("Неверный адрес", "address"),
-		("Клиент отказался", "refused"),
-		("Другая причина", "other"),
+		("[ ⚠️ Не открывает дверь ]", "door"),
+		("[ 📍 Неверный адрес ]", "address"),
+		("[ 👤 Клиент отказался ]", "refused"),
+		("[ ⚠️ Другая причина ]", "other"),
 	]
 	return InlineKeyboardMarkup(
 		inline_keyboard=[
@@ -93,9 +91,9 @@ def _find_stop_by_id(route: dict, stop_id: int) -> dict | None:
 	return None
 
 
-# ─── Persistent keyboard button: "📦 Активный маршрут" ─────────────────────────
+# ─── Persistent keyboard button: "📦 Открыть маршрут" ─────────────────────────
 
-@router.message(F.text == "📦 Активный маршрут")
+@router.message(F.text.in_({"📦 Открыть маршрут", "📦 Активный маршрут"}))
 async def show_active_route(message: Message, tg_id: int, order_service=None, **kwargs) -> None:
 	"""Показать текущую остановку активного маршрута."""
 	client: BackendClient = kwargs.get("backend_client") or BackendClient()
@@ -104,16 +102,14 @@ async def show_active_route(message: Message, tg_id: int, order_service=None, **
 
 	if route is None:
 		await message.answer(
-			"📭 Активных маршрутов нет\\.\n\nЖдите назначения от менеджера\\.",
-			parse_mode="MarkdownV2",
+			format_success_message("Активных маршрутов пока нет. Ожидайте назначения от менеджера.", "Маршрутов нет"),
 		)
 		return
 
 	stop = _find_current_stop(route)
 	if stop is None:
 		await message.answer(
-			"✅ Все остановки завершены\\. Маршрут выполнен\\!",
-			parse_mode="MarkdownV2",
+			format_success_message("Все остановки завершены. Маршрут выполнен.", "Маршрут завершён"),
 		)
 		return
 
@@ -122,11 +118,10 @@ async def show_active_route(message: Message, tg_id: int, order_service=None, **
 	keyboard = _build_stop_keyboard(
 		route_id=str(route["id"]),
 		stop_id=stop["id"],
-		phone=stop.get("customer_phone"),
 		address=stop.get("delivery_address", ""),
 	)
 
-	await message.answer(text, parse_mode="MarkdownV2", reply_markup=keyboard)
+	await message.answer(text, reply_markup=keyboard)
 
 
 # ─── Callback: "✅ Доставлено" ───────────────────────────────────────────────
@@ -164,15 +159,14 @@ async def handle_stop_done(call: CallbackQuery, tg_id: int, **kwargs) -> None:
 	if updated_route.get("status") == "completed":
 		courier_name = (updated_route.get("courier") or {}).get("name", "Курьер")
 		text = format_completion_card(updated_route, courier_name)
-		await call.message.edit_text(text, parse_mode="MarkdownV2")
+		await call.message.edit_text(text)
 		return
 
 	# Show next stop
 	next_stop = _find_current_stop(updated_route)
 	if next_stop is None:
 		await call.message.edit_text(
-			"✅ Все остановки завершены\\. Маршрут выполнен\\!",
-			parse_mode="MarkdownV2",
+			format_success_message("Все остановки завершены. Маршрут выполнен.", "Маршрут завершён"),
 		)
 		return
 
@@ -181,10 +175,9 @@ async def handle_stop_done(call: CallbackQuery, tg_id: int, **kwargs) -> None:
 	keyboard = _build_stop_keyboard(
 		route_id=str(updated_route["id"]),
 		stop_id=next_stop["id"],
-		phone=next_stop.get("customer_phone"),
 		address=next_stop.get("delivery_address", ""),
 	)
-	await call.message.edit_text(text, parse_mode="MarkdownV2", reply_markup=keyboard)
+	await call.message.edit_text(text, reply_markup=keyboard)
 
 
 # ─── Callback: "⚠️ Проблема" — показать причины ─────────────────────────────
@@ -226,8 +219,7 @@ async def handle_route_start_button(call: CallbackQuery, tg_id: int, **kwargs) -
 	keyboard = _build_stop_keyboard(
 		route_id=str(route["id"]),
 		stop_id=stop["id"],
-		phone=stop.get("customer_phone"),
 		address=stop.get("delivery_address", ""),
 	)
-	await call.message.edit_text(text, parse_mode="MarkdownV2", reply_markup=keyboard)
+	await call.message.edit_text(text, reply_markup=keyboard)
 	await call.answer()

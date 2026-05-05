@@ -8,6 +8,7 @@ from aiogram import BaseMiddleware
 from aiogram.types import CallbackQuery, Message
 
 from bot.services.auth_service import BotAuthService
+from bot.utils.formatters import format_warning_message
 
 
 class RoleAuthMiddleware(BaseMiddleware):
@@ -46,11 +47,14 @@ class RoleAuthMiddleware(BaseMiddleware):
 		return await handler(event, data)
 
 	async def _deny(self, event: Message | CallbackQuery) -> None:
-		text = "Аккаунт не найден. Пожалуйста, обратитесь к менеджеру для регистрации."
+		message_text = format_warning_message(
+			"Аккаунт не найден. Пожалуйста, обратитесь к менеджеру для регистрации.",
+			"Доступ ограничен",
+		)
 		if isinstance(event, CallbackQuery):
-			await event.answer(text, show_alert=True)
+			await event.answer("Аккаунт не найден. Обратитесь к менеджеру для регистрации.", show_alert=True)
 			if event.message is not None:
-				await event.message.answer(text)
+				await event.message.answer(message_text)
 			return
 
-		await event.answer(text)
+		await event.answer(message_text)

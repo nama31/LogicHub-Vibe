@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 
 from aiogram import Bot, Dispatcher
+from aiogram.client.default import DefaultBotProperties
+from aiogram.enums import ParseMode
 
 from bot.core.config import settings
 from bot.core.http_client import BackendClient
@@ -33,7 +35,10 @@ async def main() -> None:
 	auth_service = BotAuthService(backend_client)
 	order_service = BotOrderService(backend_client)
 
-	bot = Bot(token=settings.telegram_bot_token)
+	bot = Bot(
+		token=settings.telegram_bot_token,
+		default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+	)
 	dp = Dispatcher()
 
 	dp["order_service"] = order_service
@@ -62,7 +67,7 @@ async def main() -> None:
 			break
 		except Exception as e:
 			if i == max_retries - 1:
-				print(f"❌ Не удалось подключиться к бекенду после {max_retries} попыток")
+				print(f"Не удалось подключиться к бекенду после {max_retries} попыток")
 				raise
 			print(f"⚠️ Ожидание бекенда... (попытка {i+1}/{max_retries})")
 			await asyncio.sleep(3)

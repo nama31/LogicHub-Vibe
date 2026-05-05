@@ -1,15 +1,30 @@
 """Хендлеры заказа для клиентов."""
 
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from bot.states.client_order import ClientOrderStates
 from bot.services.order_service import BotOrderService
-import re
+from bot.keyboards.client_menu import (
+    build_cart_actions_keyboard,
+    build_catalog_keyboard,
+    build_order_confirmation_keyboard,
+)
+from bot.utils.formatters import (
+    format_cart_update,
+    format_catalog_intro,
+    format_client_order_confirmation,
+    format_client_order_success,
+    format_client_orders_list,
+    format_error_message,
+    format_selected_product,
+    format_success_message,
+    format_warning_message,
+)
 
 router = Router()
 
-@router.message(F.text == "🛍 Сделать заказ")
+@router.message(F.text.in_({"🛍️ Сделать заказ", "🛍 Сделать заказ"}))
 async def start_client_order(message: Message, state: FSMContext, order_service: BotOrderService, tg_id: int):
     """Начало процесса заказа: показ каталога."""
     await state.clear()
@@ -20,18 +35,10 @@ async def show_catalog(message: Message, state: FSMContext, order_service: BotOr
     """Показ каталога товаров."""
     catalog = await order_service.get_catalog(tg_id)
     if not catalog:
-        await message.answer("К сожалению, сейчас нет доступных товаров.")
+        await message.answer(format_warning_message("Сейчас нет доступных товаров.", "Каталог пуст"))
         return
 
-    buttons = []
-    for item in catalog:
-        buttons.append([InlineKeyboardButton(
-            text=f"{item['title']} ({item['stock_quantity']} {item['unit']})",
-            callback_data=f"buy_prod:{item['id']}"
-        )])
-    
-    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
-    await message.answer("Выберите товар из каталога:", reply_markup=keyboard)
+    await message.answer(format_catalog_intro(), reply_markup=build_catalog_keyboard(catalog))
     await state.set_state(ClientOrderStates.selecting_product)
 
 @router.callback_query(F.data.startswith("buy_prod:"), ClientOrderStates.selecting_product)
@@ -50,10 +57,7 @@ async def select_product(callback: CallbackQuery, state: FSMContext, order_servi
     await state.update_data(product_id=product_id, product_title=product['title'], max_qty=product['stock_quantity'], unit=product['unit'])
     
     await callback.message.edit_text(
-        f"Вы выбрали: <b>{product['title']}</b>\n"
-        f"Доступно: {product['stock_quantity']} {product['unit']}\n\n"
-        "Введите необходимое количество:",
-        parse_mode="HTML"
+        format_selected_product(product)
     )
     await state.set_state(ClientOrderStates.entering_quantity)
     await callback.answer()
@@ -62,18 +66,18 @@ async def select_product(callback: CallbackQuery, state: FSMContext, order_servi
 async def enter_quantity(message: Message, state: FSMContext):
     """Ввод количества."""
     if not message.text or not message.text.isdigit():
-        await message.answer("Пожалуйста, введите число.")
+        await message.answer(format_warning_message("Пожалуйста, введите количество числом."))
         return
     
     qty = int(message.text)
     data = await state.get_data()
     
     if qty <= 0:
-        await message.answer("Количество должно быть больше нуля.")
+        await message.answer(format_warning_message("Количество должно быть больше нуля."))
         return
     
     if qty > data['max_qty']:
-        await message.answer(f"Недостаточно товара. Максимум: {data['max_qty']} {data['unit']}")
+        await message.answer(format_warning_message(f"Недостаточно товара. Максимум: {data['max_qty']} {data['unit']}."))
         return
     
     # Сохраняем в корзину
@@ -88,22 +92,9 @@ async def enter_quantity(message: Message, state: FSMContext):
     cart.append(item)
     await state.update_data(cart=cart)
     
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="➕ Добавить еще", callback_data="add_more"),
-            InlineKeyboardButton(text="🏁 Оформить заказ", callback_data="go_to_checkout")
-        ],
-        [
-            InlineKeyboardButton(text="❌ Отмена", callback_data="cancel_order")
-        ]
-    ])
-    
     await message.answer(
-        f"✅ Добавлено: <b>{data['product_title']}</b> ({qty} {data['unit']})\n"
-        f"Всего в корзине: {len(cart)} поз.\n\n"
-        "Что делаем дальше?",
-        reply_markup=keyboard,
-        parse_mode="HTML"
+        format_cart_update(data['product_title'], qty, data['unit'], len(cart)),
+        reply_markup=build_cart_actions_keyboard(),
     )
     await state.set_state(ClientOrderStates.choosing_next_action)
 
@@ -116,7 +107,7 @@ async def add_more_items(callback: CallbackQuery, state: FSMContext, order_servi
 @router.callback_query(F.data == "go_to_checkout", ClientOrderStates.choosing_next_action)
 async def start_checkout(callback: CallbackQuery, state: FSMContext):
     """Начало оформления: запрос адреса."""
-    await callback.message.answer("Введите адрес доставки:")
+    await callback.message.answer("📍 <b>Адрес доставки</b>\n\nВведите полный адрес доставки.")
     await state.set_state(ClientOrderStates.entering_address)
     await callback.answer()
 
@@ -124,11 +115,11 @@ async def start_checkout(callback: CallbackQuery, state: FSMContext):
 async def enter_address(message: Message, state: FSMContext):
     """Ввод адреса."""
     if not message.text:
-        await message.answer("Пожалуйста, введите адрес.")
+        await message.answer(format_warning_message("Пожалуйста, введите адрес доставки."))
         return
     
     await state.update_data(delivery_address=message.text)
-    await message.answer("Введите примечание к заказу (или напишите 'нет'):")
+    await message.answer("<b>Примечание к заказу</b>\n\nВведите комментарий или напишите «нет».")
     await state.set_state(ClientOrderStates.entering_note)
 
 @router.message(ClientOrderStates.entering_note)
@@ -140,26 +131,10 @@ async def enter_note(message: Message, state: FSMContext):
     data = await state.get_data()
     cart = data.get('cart', [])
     
-    cart_text = ""
-    for idx, item in enumerate(cart, 1):
-        cart_text += f"{idx}. {item['product_title']} — {item['quantity']} {item['unit']}\n"
-
-    summary = (
-        f"📦 <b>Подтверждение заказа</b>\n\n"
-        f"🛒 <b>Товары:</b>\n{cart_text}\n"
-        f"📍 <b>Адрес:</b> {data['delivery_address']}\n"
-        f"📝 <b>Примечание:</b> {data['note'] or 'нет'}\n\n"
-        "Все верно?"
+    await message.answer(
+        format_client_order_confirmation(cart, data['delivery_address'], data['note']),
+        reply_markup=build_order_confirmation_keyboard(),
     )
-    
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="✅ Да, заказать", callback_data="confirm_order"),
-            InlineKeyboardButton(text="❌ Отмена", callback_data="cancel_order")
-        ]
-    ])
-    
-    await message.answer(summary, reply_markup=keyboard, parse_mode="HTML")
     await state.set_state(ClientOrderStates.confirming)
 
 @router.callback_query(F.data == "confirm_order", ClientOrderStates.confirming)
@@ -180,17 +155,10 @@ async def confirm_order(callback: CallbackQuery, state: FSMContext, order_servic
         )
         
         order_ids = result.get('order_ids', [])
-        ids_text = ", ".join([f"#{oid}" for oid in order_ids])
         
-        await callback.message.edit_text(
-            f"✅ <b>Заказ успешно оформлен!</b>\n\n"
-            f"ID заказов: {ids_text}\n"
-            f"Всего позиций: {len(cart)}\n\n"
-            "Менеджер свяжется с вами для подтверждения цен и времени доставки.",
-            parse_mode="HTML"
-        )
+        await callback.message.edit_text(format_client_order_success(order_ids, len(cart)))
     except Exception as e:
-        await callback.message.answer(f"Произошла ошибка при оформлении заказа: {str(e)}")
+        await callback.message.answer(format_error_message(f"Произошла ошибка при оформлении заказа: {str(e)}"))
     
     await state.clear()
     await callback.answer()
@@ -199,33 +167,16 @@ async def confirm_order(callback: CallbackQuery, state: FSMContext, order_servic
 async def cancel_order(callback: CallbackQuery, state: FSMContext):
     """Отмена заказа."""
     await state.clear()
-    await callback.message.edit_text("Заказ отменен.")
+    await callback.message.edit_text(format_warning_message("Заказ отменён.", "Оформление остановлено"))
     await callback.answer()
 
-@router.message(F.text == "📋 Мои заказы")
+@router.message(F.text.in_({"🛍️ Мои заказы", "📦 Мои заказы"}))
 async def show_my_orders(message: Message, order_service: BotOrderService, tg_id: int):
     """Показ списка заказов клиента."""
     orders = await order_service.get_user_orders(tg_id)
     
     if not orders:
-        await message.answer("У вас еще нет заказов.")
+        await message.answer(format_success_message("У вас пока нет заказов.", "Заказов нет"))
         return
 
-    text = "📋 <b>Ваши последние заказы:</b>\n\n"
-    for o in orders[:10]: # Показываем последние 10
-        status_map = {
-            "pending": "🔍 На проверке",
-            "new": "🆕 Новый",
-            "assigned": "⏳ Назначен",
-            "in_transit": "🚚 В пути",
-            "delivered": "✅ Доставлен",
-            "failed": "❌ Отменен/Проблема"
-        }
-        status_text = status_map.get(o['status'], o['status'])
-        text += (
-            f"#{o['id']} | {o['product_title']} | {o['quantity']} шт.\n"
-            f"Статус: {status_text}\n"
-            f"-------------------\n"
-        )
-    
-    await message.answer(text, parse_mode="HTML")
+    await message.answer(format_client_orders_list(orders))

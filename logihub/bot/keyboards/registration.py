@@ -8,7 +8,7 @@ def build_registration_keyboard() -> ReplyKeyboardMarkup:
 
 	return ReplyKeyboardMarkup(
 		keyboard=[
-			[KeyboardButton(text="📱 Поделиться контактом", request_contact=True)],
+			[KeyboardButton(text="📞 Поделиться контактом", request_contact=True)],
 		],
 		resize_keyboard=True,
 		one_time_keyboard=True,
