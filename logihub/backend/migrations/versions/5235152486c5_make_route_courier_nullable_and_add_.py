@@ -25,5 +25,4 @@ def downgrade() -> None:
     op.alter_column('routes', 'courier_id',
                existing_type=sa.UUID(),
                nullable=False)
-    op.create_index(op.f('ix_orders_route_id_stop_sequence'), 'orders', ['route_id', 'stop_sequence'], unique=False)
     # ### end Alembic commands ###

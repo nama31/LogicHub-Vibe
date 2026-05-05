@@ -10,7 +10,7 @@ import logging
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -88,16 +88,20 @@ def _route_to_out(route: Route) -> RouteOut:
     )
 
 
-def _route_to_list_item(route: Route) -> RouteListItem:
-    counters = _route_counters(route.stops)
+def _route_to_list_item(
+    route: Route,
+    stops_total: int = 0,
+    stops_delivered: int = 0,
+    stops_failed: int = 0,
+) -> RouteListItem:
     return RouteListItem(
         id=route.id,
         label=route.label,
         status=route.status,
         courier=route.courier,
-        stops_total=counters["stops_total"],
-        stops_delivered=counters["stops_delivered"],
-        stops_failed=counters["stops_failed"],
+        stops_total=stops_total,
+        stops_delivered=stops_delivered,
+        stops_failed=stops_failed,
         created_at=route.created_at,
         started_at=route.started_at,
         completed_at=route.completed_at,
@@ -123,13 +127,14 @@ async def create_route(data: RouteCreate, created_by: UUID, db: AsyncSession) ->
     if courier.role != "courier":
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Selected user is not a courier")
 
-    # Validate & load orders
+    result = await db.execute(
+        select(Order).options(selectinload(Order.product)).where(Order.id.in_(data.order_ids))
+    )
+    orders_by_id = {order.id: order for order in result.scalars().all()}
+
     orders: list[Order] = []
-    for idx, order_id in enumerate(data.order_ids):
-        result = await db.execute(
-            select(Order).options(selectinload(Order.product)).where(Order.id == order_id)
-        )
-        order = result.scalar_one_or_none()
+    for order_id in data.order_ids:
+        order = orders_by_id.get(order_id)
         if order is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -181,12 +186,28 @@ async def list_routes(
     db: AsyncSession,
     route_status: str | None = None,
     courier_id: UUID | None = None,
+    limit: int = 100,
+    offset: int = 0,
 ) -> list[RouteListItem]:
     """Список маршрутов с фильтрацией."""
+    stops_total = func.count(Order.id).label("stops_total")
+    stops_delivered = func.coalesce(
+        func.sum(case((Order.status == "delivered", 1), else_=0)),
+        0,
+    ).label("stops_delivered")
+    stops_failed = func.coalesce(
+        func.sum(case((Order.status == "failed", 1), else_=0)),
+        0,
+    ).label("stops_failed")
+
     stmt = (
-        select(Route)
-        .options(selectinload(Route.courier), selectinload(Route.stops))
+        select(Route, stops_total, stops_delivered, stops_failed)
+        .outerjoin(Order, Order.route_id == Route.id)
+        .options(selectinload(Route.courier))
+        .group_by(Route.id)
         .order_by(Route.created_at.desc())
+        .limit(limit)
+        .offset(offset)
     )
     if route_status:
         stmt = stmt.where(Route.status == route_status)
@@ -194,8 +215,44 @@ async def list_routes(
         stmt = stmt.where(Route.courier_id == courier_id)
 
     result = await db.execute(stmt)
-    routes = list(result.scalars().all())
-    return [_route_to_list_item(r) for r in routes]
+    return [
+        _route_to_list_item(
+            route,
+            stops_total=int(row_stops_total or 0),
+            stops_delivered=int(row_stops_delivered or 0),
+            stops_failed=int(row_stops_failed or 0),
+        )
+        for route, row_stops_total, row_stops_delivered, row_stops_failed in result.all()
+    ]
+
+
+async def count_routes(
+    db: AsyncSession,
+    route_status: str | None = None,
+    courier_id: UUID | None = None,
+) -> int:
+    stmt = select(func.count(Route.id))
+    if route_status:
+        stmt = stmt.where(Route.status == route_status)
+    if courier_id:
+        stmt = stmt.where(Route.courier_id == courier_id)
+    return int(await db.scalar(stmt) or 0)
+
+
+async def get_active_route_for_courier_tg_id(tg_id: int, db: AsyncSession) -> RouteOut | None:
+    stmt = (
+        select(Route)
+        .join(Route.courier)
+        .options(
+            selectinload(Route.courier),
+            selectinload(Route.stops).selectinload(Order.product),
+        )
+        .where(Route.status == "active", User.tg_id == tg_id)
+    )
+    route = await db.scalar(stmt)
+    if route is None:
+        return None
+    return _route_to_out(route)
 
 
 async def get_route(route_id: UUID, db: AsyncSession) -> RouteOut:

@@ -11,10 +11,10 @@ from models.product import Product
 from services.serializers import serialize_product_prices
 from uuid import UUID
 
-async def get_products(db: AsyncSession) -> List[Product]:
+async def get_products(db: AsyncSession, limit: int = 100, offset: int = 0) -> List[Product]:
     """Получить товары."""
 
-    result = await db.execute(select(Product).order_by(Product.created_at.desc()))
+    result = await db.execute(select(Product).order_by(Product.created_at.desc()).limit(limit).offset(offset))
     products = list(result.scalars().all())
 
     for product in products:

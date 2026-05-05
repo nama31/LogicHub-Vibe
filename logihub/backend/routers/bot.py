@@ -157,7 +157,7 @@ async def create_client_order_bot(
     if user is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Client access required")
 
-    product = await db.get(Product, payload.product_id)
+    product = await _get_product_for_update(payload.product_id, db)
     if product is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
 
@@ -216,7 +216,25 @@ async def create_client_batch_orders_bot(
     if user is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Client access required")
 
-    # 1. Создаем маршрут (черновик на проверке)
+    quantities_by_product_id: dict[UUID, int] = {}
+    for item in payload.items:
+        quantities_by_product_id[item.product_id] = quantities_by_product_id.get(item.product_id, 0) + item.quantity
+
+    result = await db.execute(
+        select(Product).where(Product.id.in_(quantities_by_product_id)).with_for_update()
+    )
+    products_by_id = {product.id: product for product in result.scalars().all()}
+
+    for product_id, quantity in quantities_by_product_id.items():
+        product = products_by_id.get(product_id)
+        if product is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Product {product_id} not found")
+        if product.stock_quantity < quantity:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Insufficient stock for {product.title}"
+            )
+
     route = Route(
         courier_id=None,
         created_by=user.id,
@@ -229,15 +247,7 @@ async def create_client_batch_orders_bot(
     created_orders = []
     
     for idx, item in enumerate(payload.items, 1):
-        product = await db.get(Product, item.product_id)
-        if product is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Product {item.product_id} not found")
-
-        if product.stock_quantity < item.quantity:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, 
-                detail=f"Insufficient stock for {product.title}"
-            )
+        product = products_by_id[item.product_id]
 
         order = Order(
             product_id=item.product_id,
@@ -397,3 +407,7 @@ async def update_order_status_bot(
     })
 
     return {"id": order.id, "status": order.status}
+
+
+async def _get_product_for_update(product_id: UUID, db: AsyncSession) -> Product | None:
+    return await db.scalar(select(Product).where(Product.id == product_id).with_for_update())

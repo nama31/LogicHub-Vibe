@@ -11,10 +11,10 @@ from schemas.user import UserCreate, UserUpdate
 from models.user import User
 from uuid import UUID
 
-async def get_users(db: AsyncSession) -> List[User]:
+async def get_users(db: AsyncSession, limit: int = 100, offset: int = 0) -> List[User]:
     """Получить пользователей."""
 
-    result = await db.execute(select(User).order_by(User.created_at.desc()))
+    result = await db.execute(select(User).order_by(User.created_at.desc()).limit(limit).offset(offset))
     return list(result.scalars().all())
 
 async def get_user_by_phone(phone: str, db: AsyncSession) -> User | None:

@@ -10,6 +10,14 @@ from models.order import Order
 from models.product import Product
 from schemas.analytics import SummaryOut, ProfitOut
 
+
+def _date_start(day: date) -> datetime:
+    return datetime.combine(day, datetime.min.time(), tzinfo=UTC)
+
+
+def _date_end(day: date) -> datetime:
+    return _date_start(day + timedelta(days=1))
+
 async def get_summary(db: AsyncSession) -> SummaryOut:
     """Получить сводку."""
 
@@ -51,6 +59,8 @@ async def get_profit(db: AsyncSession, from_date: date | None = None, to_date: d
             breakdown=[],
         )
 
+    start_dt = _date_start(from_date)
+    end_dt = _date_end(to_date)
     day_label = func.date(Order.created_at).label("date")
     statement = (
         select(
@@ -75,7 +85,7 @@ async def get_profit(db: AsyncSession, from_date: date | None = None, to_date: d
         )
         .select_from(Order)
         .join(Product, Product.id == Order.product_id)
-        .where(func.date(Order.created_at).between(from_date, to_date))
+        .where(Order.created_at >= start_dt, Order.created_at < end_dt)
         .group_by(day_label)
         .order_by(day_label)
     )
@@ -121,7 +131,7 @@ async def _get_period_summary(db: AsyncSession, start_date: date, end_date: date
         )
         .select_from(Order)
         .join(Product, Product.id == Order.product_id)
-        .where(func.date(Order.created_at) >= start_date, func.date(Order.created_at) < end_date)
+        .where(Order.created_at >= _date_start(start_date), Order.created_at < _date_start(end_date))
     )
 
     result = await db.execute(statement)
@@ -173,24 +183,49 @@ async def get_courier_analytics(db: AsyncSession) -> "CourierAnalyticsOut":
     from models.user import User
     from models.route import Route
 
-    # Для курьеров возьмем информацию по маршрутам и заказам.
-    # Но для сохранения производительности и простоты сгруппируем заказы по курьерам
+    route_counts = (
+        select(
+            Route.courier_id.label("courier_id"),
+            func.count(Route.id).label("routes_count"),
+        )
+        .group_by(Route.courier_id)
+        .subquery()
+    )
+    order_counts = (
+        select(
+            Order.courier_id.label("courier_id"),
+            func.count(Order.id).label("stops_total"),
+            func.coalesce(
+                func.sum(case((Order.status == "delivered", 1), else_=0)),
+                0,
+            ).label("stops_delivered"),
+            func.coalesce(
+                func.sum(case((Order.status == "failed", 1), else_=0)),
+                0,
+            ).label("stops_failed"),
+            func.coalesce(
+                func.sum(case((Order.status == "delivered", Order.courier_fee), else_=0)),
+                0,
+            ).label("total_fee_som"),
+        )
+        .group_by(Order.courier_id)
+        .subquery()
+    )
     statement = (
         select(
             User.id,
             User.name,
-            func.count(func.distinct(Route.id)).label("routes_count"),
-            func.count(Order.id).label("stops_total"),
-            func.sum(case((Order.status == "delivered", 1), else_=0)).label("stops_delivered"),
-            func.sum(case((Order.status == "failed", 1), else_=0)).label("stops_failed"),
-            func.sum(case((Order.status == "delivered", Order.courier_fee), else_=0)).label("total_fee_som"),
+            func.coalesce(route_counts.c.routes_count, 0).label("routes_count"),
+            func.coalesce(order_counts.c.stops_total, 0).label("stops_total"),
+            func.coalesce(order_counts.c.stops_delivered, 0).label("stops_delivered"),
+            func.coalesce(order_counts.c.stops_failed, 0).label("stops_failed"),
+            func.coalesce(order_counts.c.total_fee_som, 0).label("total_fee_som"),
         )
         .select_from(User)
-        .outerjoin(Route, Route.courier_id == User.id)
-        .outerjoin(Order, Order.courier_id == User.id)
+        .outerjoin(route_counts, route_counts.c.courier_id == User.id)
+        .outerjoin(order_counts, order_counts.c.courier_id == User.id)
         .where(User.role == "courier")
-        .group_by(User.id)
-        .order_by(func.count(func.distinct(Route.id)).desc())
+        .order_by(func.coalesce(route_counts.c.routes_count, 0).desc())
     )
 
     result = await db.execute(statement)
@@ -261,6 +296,7 @@ async def get_trend_analytics(db: AsyncSession) -> "TrendAnalyticsOut":
 
     # Последние 30 дней
     thirty_days_ago = datetime.now(UTC).date() - timedelta(days=30)
+    start_dt = _date_start(thirty_days_ago)
 
     day_label = func.date(Order.created_at).label("date")
     statement = (
@@ -271,7 +307,7 @@ async def get_trend_analytics(db: AsyncSession) -> "TrendAnalyticsOut":
         )
         .select_from(Order)
         .join(Product, Product.id == Order.product_id)
-        .where(func.date(Order.created_at) >= thirty_days_ago)
+        .where(Order.created_at >= start_dt)
         .group_by(day_label)
         .order_by(day_label)
     )

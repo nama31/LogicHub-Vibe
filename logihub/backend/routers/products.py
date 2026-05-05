@@ -1,6 +1,6 @@
 """Роутер товаров."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,10 +18,14 @@ from services.product_service import (
 router = APIRouter(prefix="/products", tags=["products"], dependencies=[Depends(require_admin)])
 
 @router.get("", response_model=List[ProductOut])
-async def get_products(db: AsyncSession = Depends(get_db)) -> List[ProductOut]:
+async def get_products(
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+) -> List[ProductOut]:
     """Получение списка товаров (admin)."""
 
-    return await get_products_service(db)
+    return await get_products_service(db, limit=limit, offset=offset)
 
 @router.post("", response_model=ProductOut)
 async def create_product(product: ProductCreate, db: AsyncSession = Depends(get_db)) -> ProductOut:
