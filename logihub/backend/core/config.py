@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,6 +16,18 @@ class Settings(BaseSettings):
     )
 
     database_url: str = Field(alias="DATABASE_URL")
+
+    # 2. Add this block right here to intercept and fix the Heroku URL
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def fix_heroku_postgres_url(cls, v: str) -> str:
+        if v and v.startswith("postgres://"):
+            return v.replace("postgres://", "postgresql+asyncpg://", 1)
+        return v
+
+
+
+
     jwt_secret: str | None = Field(default=None, alias="JWT_SECRET")
     bot_secret: str | None = Field(default=None, alias="BOT_SECRET")
     telegram_bot_token: str | None = Field(default=None, alias="TELEGRAM_BOT_TOKEN")

@@ -12,4 +12,10 @@ COPY . /app/backend
 
 EXPOSE 8000
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+#for local development
+# CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+
+#for deployment
+CMD uvicorn main:app --host 0.0.0.0 --port $PORT  

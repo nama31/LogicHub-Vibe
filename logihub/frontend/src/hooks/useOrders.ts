@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { apiGet, apiPost, apiPatch, apiDel } from "@/lib/api";
+import { getToken } from "@/lib/auth";
 import type { Order, OrderCreate, OrderUpdate, StatusEntry } from "@/types/order";
 
 type RealtimeUpdateEvent = CustomEvent<{ event?: string; id?: string | number }>;
@@ -87,12 +88,14 @@ export function useOrders(params?: {
     if (params?.courierId) searchParams.set("courier_id", params.courierId);
     
     const q = searchParams.toString();
-    const url = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/orders/export${q ? `?${q}` : ""}`;
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    const url = `${baseUrl}/orders/export${q ? `?${q}` : ""}`;
     
-    // We fetch it directly with token to get the blob
-    const token = localStorage.getItem("token");
+    const token = getToken();
     const response = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { 
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      }
     });
     
     if (!response.ok) throw new Error("Failed to export orders");
@@ -101,7 +104,7 @@ export function useOrders(params?: {
     const downloadUrl = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = downloadUrl;
-    a.download = "orders_export.csv";
+    a.download = `orders_export_${new Date().toISOString().split('T')[0]}.csv`;
     document.body.appendChild(a);
     a.click();
     window.URL.revokeObjectURL(downloadUrl);

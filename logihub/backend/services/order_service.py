@@ -253,7 +253,7 @@ async def export_orders_csv(db: AsyncSession, status: str | None = None, courier
     
     writer.writerow([
         "ID", "Дата создания", "Товар", "Количество", "Цена продажи (сом)", 
-        "Доставка (сом)", "Клиент", "Телефон", "Адрес", "Курьер", "Статус", "Примечание"
+        "Доставка (сом)", "Чистая прибыль (сом)", "Клиент", "Телефон", "Адрес", "Курьер", "Статус", "Примечание"
     ])
     
     for order in orders:
@@ -264,6 +264,7 @@ async def export_orders_csv(db: AsyncSession, status: str | None = None, courier
             order.quantity,
             order.sale_price_som,
             order.courier_fee_som,
+            order.net_profit_som,
             order.customer_name,
             order.customer_phone,
             order.delivery_address,

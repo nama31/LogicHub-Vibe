@@ -13,4 +13,9 @@ COPY . .
 
 EXPOSE 3000
 
-CMD ["npm", "run", "dev", "--", "--hostname", "0.0.0.0", "--port", "3000"]
+
+#for local development
+# CMD ["npm", "run", "dev", "--", "--hostname", "0.0.0.0", "--port", "3000"]
+
+#for deployment 
+CMD ["sh", "-c", "npm run start -- -p $PORT"]
