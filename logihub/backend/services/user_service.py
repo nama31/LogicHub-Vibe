@@ -99,11 +99,11 @@ async def update_user(id: UUID, data: UserUpdate, db: AsyncSession) -> User:
     return user
 
 async def delete_user(id: UUID, db: AsyncSession) -> None:
-    """Удалить пользователя."""
+    """Отключить пользователя без физического удаления."""
 
     user = await db.get(User, id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
-    await db.delete(user)
+    user.is_active = False
     await db.commit()

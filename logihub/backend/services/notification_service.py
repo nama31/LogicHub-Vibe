@@ -95,9 +95,10 @@ def _sanitize_html(text: str | None) -> str:
         return ""
     return html.escape(str(text))
 
-async def send_courier_notification(order_id: int) -> None:
+async def send_courier_notification(order_id: int | Order) -> None:
     """Отправить уведомление курьеру с использованием aiogram.Bot."""
-    logger.info("Starting async notification pipeline for order %s", order_id)
+    order_pk = getattr(order_id, "id", order_id)
+    logger.info("Starting async notification pipeline for order %s", order_pk)
 
     if not settings.telegram_bot_token:
         logger.warning("Telegram bot token is not configured; skipping notification for order %s", order_id)
@@ -107,11 +108,11 @@ async def send_courier_notification(order_id: int) -> None:
         stmt = (
             select(Order)
             .options(selectinload(Order.courier), selectinload(Order.product))
-            .where(Order.id == order_id)
+            .where(Order.id == order_pk)
         )
         order = await db.scalar(stmt)
         if not order:
-            logger.error("Order %s not found; cannot notify", order_id)
+            logger.error("Order %s not found; cannot notify", order_pk)
             return
 
         bot = Bot(token=settings.telegram_bot_token)
@@ -119,12 +120,12 @@ async def send_courier_notification(order_id: int) -> None:
         try:
             # Проверка наличия курьера и tg_id
             if not order.courier:
-                 logger.error("Order %s has no courier assigned; cannot notify", order_id)
+                 logger.error("Order %s has no courier assigned; cannot notify", order_pk)
                  return
                  
             tg_id_raw = getattr(order.courier, "tg_id", None)
             if tg_id_raw is None:
-                logger.warning("Courier %s has no Telegram ID; skipping notification for order %s", order.courier.name, order_id)
+                logger.warning("Courier %s has no Telegram ID; skipping notification for order %s", order.courier.name, order_pk)
                 return
             
             try:
@@ -135,7 +136,7 @@ async def send_courier_notification(order_id: int) -> None:
                 logger.error("Invalid Telegram ID format for courier %s: %s", order.courier.name, tg_id_raw)
                 return
     
-            logger.info("Preparing payload for courier %s (TG: %s) for order %s", order.courier.name, tg_id, order_id)
+            logger.info("Preparing payload for courier %s (TG: %s) for order %s", order.courier.name, tg_id, order_pk)
             message = _build_courier_notification(order)
             
             # Сборка inline-кнопок через структуру aiogram
@@ -149,17 +150,17 @@ async def send_courier_notification(order_id: int) -> None:
                 ]
             )
             
-            logger.info("Sending message via aiogram.Bot for order %s", order_id)
+            logger.info("Sending message via aiogram.Bot for order %s", order_pk)
             await bot.send_message(
                 chat_id=tg_id,
                 text=message,
                 reply_markup=keyboard,
                 parse_mode="HTML"
             )
-            logger.info("Notification sent successfully for order %s", order_id)
+            logger.info("Notification sent successfully for order %s", order_pk)
     
         except Exception as e:
-            logger.error("Failed to send notification for order %s: %s", order_id, str(e), exc_info=True)
+            logger.error("Failed to send notification for order %s: %s", order_pk, str(e), exc_info=True)
         finally:
             await bot.session.close()
 

@@ -60,11 +60,21 @@ services:
     depends_on:
       - backend
     network_mode: host
+    # change for local develop
     volumes:
+      # Монтируем код, но исключаем node_modules, чтобы Docker брал их изнутри контейнера
       - ./frontend:/app/frontend
+      - /app/frontend/node_modules
       - frontend_next:/app/frontend/.next
-      - frontend_node_modules:/app/frontend/node_modules
-    command: sh -c "[ -d node_modules ] && [ \"$(ls -A node_modules)\" ] || pnpm install; exec pnpm run dev"
+    # Упрощаем команду — зависимости уже установлены на этапе сборки образа
+    command: pnpm run dev
+
+
+    # volumes:
+    #   - ./frontend:/app/frontend
+    #   - frontend_next:/app/frontend/.next
+    #   - frontend_node_modules:/app/frontend/node_modules
+    # command: sh -c "[ -d node_modules ] && [ \"$(ls -A node_modules)\" ] || pnpm install; exec pnpm run dev"
 
   bot:
     build:
@@ -78,7 +88,7 @@ services:
     network_mode: host
     volumes:
       - ./bot:/app/bot
-    command: python main.py
+    command: python -m bot.main
 
 
 volumes:
