@@ -21,8 +21,14 @@ class Settings(BaseSettings):
     @field_validator("database_url", mode="before")
     @classmethod
     def fix_heroku_postgres_url(cls, v: str) -> str:
-        if v and v.startswith("postgres://"):
+        if not v:
+            return v
+        # postgres:// — legacy Heroku/Render shorthand
+        if v.startswith("postgres://"):
             return v.replace("postgres://", "postgresql+asyncpg://", 1)
+        # postgresql:// without a driver — Render's current internal URL format
+        if v.startswith("postgresql://") and "+asyncpg" not in v:
+            return v.replace("postgresql://", "postgresql+asyncpg://", 1)
         return v
 
 
