@@ -27,6 +27,21 @@ if config.config_file_name is not None:
 		pass
 
 
+def _normalize_database_url(url: str) -> str:
+	"""Ensure the URL uses the asyncpg driver that is actually installed.
+
+	Render (and Heroku) provide a plain ``postgresql://`` or ``postgres://``
+	connection string.  SQLAlchemy would default to psycopg2 for both, but
+	this project only ships asyncpg.  Rewrite the scheme so Alembic uses the
+	same driver as the FastAPI application.
+	"""
+	if url.startswith("postgres://"):
+		url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+	elif url.startswith("postgresql://") and "+asyncpg" not in url:
+		url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+	return url
+
+
 def _load_database_url() -> str:
 	"""Load DATABASE_URL from the environment or a local .env file."""
 
@@ -34,11 +49,11 @@ def _load_database_url() -> str:
 		if env_path.exists():
 			for line in env_path.read_text(encoding="utf-8").splitlines():
 				if line.startswith("DATABASE_URL="):
-					return line.split("=", 1)[1].strip()
+					return _normalize_database_url(line.split("=", 1)[1].strip())
 
 	database_url = os.getenv("DATABASE_URL")
 	if database_url:
-		return database_url
+		return _normalize_database_url(database_url)
 
 	raise RuntimeError("DATABASE_URL is not set. Create logihub/.env or export DATABASE_URL before running Alembic.")
 
