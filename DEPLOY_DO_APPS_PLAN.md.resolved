@@ -1,0 +1,344 @@
+# LogiHub — DigitalOcean App Platform Deployment Plan
+
+> **Budget:** $200 / year (~$16.67 / month)
+> **Target platform:** DigitalOcean App Platform (PaaS — similar to Render, no server management)
+> **Stack:** FastAPI Backend · Next.js Frontend · Telegram Bot · PostgreSQL · Redis
+
+---
+
+## Why DigitalOcean App Platform (not a Droplet)?
+
+| Feature | App Platform (PaaS) | Droplet (VPS) |
+|---|---|---|
+| Server management | None — DO handles it | You manage everything |
+| Deploy on git push | Automatic | Manual (or CI/CD needed) |
+| HTTPS / SSL | Automatic | Certbot manual setup |
+| Scaling | Slider | Resize droplet |
+| Closest to Render | Yes | No |
+| Good for $200/yr | Yes (tight but doable) | Yes (more control) |
+
+---
+
+## Architecture Overview
+
+```
+Internet
+   │
+   ▼
+DO App Platform Ingress (HTTPS auto)
+   │
+   ├── Frontend (Next.js)  ──► Web Service
+   │
+   ├── Backend (FastAPI)   ──► Web Service (handles /api, /ws)
+   │
+   └── Bot (Telegram)      ──► Worker Service (no HTTP port, polling)
+           │
+           ▼
+   Supabase PostgreSQL (free tier)
+   Upstash Redis         (free tier)
+```
+
+> **Key insight:** App Platform has three component types:
+> - **Web Service** — has an HTTP port, gets a public URL
+> - **Worker Service** — no HTTP port, runs a background process (perfect for Telegram bot)
+> - **Static Site** — NOT suitable here because Next.js needs SSR
+
+---
+
+## Cost Breakdown (Strict $200/year Budget)
+
+### Option A — Use Free External DB/Redis (RECOMMENDED) ✅
+| Component | DO App Platform Tier | Monthly | Annual |
+|---|---|---|---|
+| Frontend (Next.js) | Basic Web · $5/mo | $5.00 | $60 |
+| Backend (FastAPI) | Basic Web · $5/mo | $5.00 | $60 |
+| Bot (Telegram) | Basic Worker · $5/mo | $5.00 | $60 |
+| PostgreSQL | **Supabase free tier** (500MB) | $0 | $0 |
+| Redis | **Upstash free tier** (10k cmd/day) | $0 | $0 |
+| **Total** | | **$15/mo** | **$180/yr** ✅ |
+
+### Option B — DO Managed DB (over budget by $64)
+| Component | Tier | Monthly | Annual |
+|---|---|---|---|
+| Frontend + Backend + Bot | $5 each | $15 | $180 |
+| PostgreSQL | DO Dev DB $7/mo | $7 | $84 |
+| Redis | Upstash free | $0 | $0 |
+| **Total** | | **$22/mo** | **$264/yr** ❌ |
+
+> **Recommendation: Option A.** Supabase free tier is production-quality (500MB, daily backups, 7-day PITR). Upstash free is sufficient for WebSocket session caching.
+
+---
+
+## Phase 0 — Code Preparation (Local, No DO Yet)
+
+Do these **before** creating anything on DigitalOcean.
+
+### 0.1 — Verify CORS is Dynamic
+Check `logihub/backend/main.py` — CORS origins must load from an env var (already done in a previous session, just verify):
+```python
+cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+```
+
+### 0.2 — Verify Backend Reads All Config from Env Vars
+`logihub/backend/env.py` (or config.py) must read:
+- `DATABASE_URL` → will be Supabase PostgreSQL URL
+- `REDIS_URL` → will be Upstash Redis URL
+- `JWT_SECRET`, `BOT_SECRET`, `TELEGRAM_BOT_TOKEN`, `CORS_ORIGINS`
+
+No hardcoded connection strings.
+
+### 0.3 — Check Backend HTTP Port
+App Platform web services expect port **8080** by default.
+Two options — pick one:
+- Change `uvicorn` to `--port 8080` in your Dockerfile CMD
+- OR set `PORT=8000` as an env var in the App Platform UI and ensure uvicorn uses `$PORT`
+
+The current Dockerfile uses `8000` — the simplest fix is to set `PORT=8000` in App Platform.
+
+### 0.4 — Telegram Bot: Keep Polling Mode
+The bot runs as a **Worker** service (no HTTP port). Polling mode (`await dp.start_polling(bot)`) is correct for this setup — no webhook changes needed.
+
+### 0.5 — Commit Everything Clean
+```bash
+git add .
+git commit -m "chore: prep for DO App Platform deploy"
+git push origin main
+```
+
+---
+
+## Phase 1 — Set Up Free External Services
+
+### 1.1 — Supabase PostgreSQL (Free)
+1. Go to [supabase.com](https://supabase.com) → Sign up free
+2. Click **New Project** → set a strong DB password → pick region closest to users
+3. Go to **Settings → Database → Connection string → URI (with pooler)**
+4. The URL format: `postgresql+asyncpg://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres`
+5. Save this URL — you'll paste it into DO as `DATABASE_URL`
+
+### 1.2 — Upstash Redis (Free)
+1. Go to [upstash.com](https://upstash.com) → Sign up free
+2. **Create Database** → Redis → pick region → free tier
+3. Copy the **REST URL** or the `rediss://` connection URL
+4. Save as `REDIS_URL`
+
+---
+
+## Phase 2 — Create the DigitalOcean App
+
+### 2.1 — Start a New App
+1. Login → [cloud.digitalocean.com](https://cloud.digitalocean.com)
+2. Click **Create → Apps**
+3. **Source:** Connect to GitHub → authorize → select `LogicHub-Vibe` repo → branch `main`
+4. DO will scan the repo and auto-detect Dockerfiles
+
+### 2.2 — Configure Backend Service
+
+| Setting | Value |
+|---|---|
+| Component name | `logihub-backend` |
+| Source directory | `logihub/backend` |
+| Component type | **Web Service** |
+| Dockerfile | `Dockerfile` (auto-detected) |
+| HTTP port | `8000` |
+| Plan | **Basic · $5/mo (512MB RAM)** |
+| Instance count | 1 |
+
+**Environment Variables** (mark all as **Encrypted**):
+```
+DATABASE_URL        = postgresql+asyncpg://postgres...[Supabase URL]
+REDIS_URL           = rediss://...[Upstash URL]
+JWT_SECRET          = [openssl rand -base64 32]
+BOT_SECRET          = [openssl rand -base64 32]
+TELEGRAM_BOT_TOKEN  = [from @BotFather]
+CORS_ORIGINS        = https://logihub-frontend.ondigitalocean.app
+```
+
+> Note: At this point you don't know the frontend URL yet. Set a placeholder — you'll update it in Phase 3.
+
+### 2.3 — Deploy Backend First
+
+Click **Save** and let the backend deploy. Once deployed, copy its URL:
+`https://logihub-backend-xxxxx.ondigitalocean.app`
+
+You need this URL before you can configure the frontend.
+
+### 2.4 — Configure Frontend Service
+
+| Setting | Value |
+|---|---|
+| Component name | `logihub-frontend` |
+| Source directory | `logihub/frontend` |
+| Component type | **Web Service** |
+| Dockerfile | `Dockerfile` (auto-detected) |
+| HTTP port | `3000` |
+| Plan | **Basic · $5/mo (512MB RAM)** |
+
+**Environment Variables** (set BEFORE first build — Next.js bakes `NEXT_PUBLIC_*` vars at build time):
+```
+NEXT_PUBLIC_API_URL = https://logihub-backend-xxxxx.ondigitalocean.app
+NODE_ENV            = production
+```
+
+### 2.5 — Configure Bot Worker Service
+
+| Setting | Value |
+|---|---|
+| Component name | `logihub-bot` |
+| Source directory | `logihub/bot` |
+| Component type | **Worker** (no HTTP port) |
+| Dockerfile | `Dockerfile` |
+| Plan | **Basic · $5/mo** |
+
+**Environment Variables:**
+```
+TELEGRAM_BOT_TOKEN = [from @BotFather]
+BACKEND_URL        = https://logihub-backend-xxxxx.ondigitalocean.app
+BOT_SECRET         = [same as backend]
+```
+
+### 2.6 — Review and Launch
+1. App Platform shows cost summary — verify it shows ~$15/month
+2. Click **Create Resources**
+3. Watch build logs per service — first build: 5-10 minutes each
+
+---
+
+## Phase 3 — Post-Deploy Configuration
+
+### 3.1 — Update CORS After Frontend URL Is Known
+Once both are deployed:
+1. Go to **Backend service → Environment Variables**
+2. Update `CORS_ORIGINS` to the exact frontend URL
+3. Click **Save** → backend auto-restarts
+
+### 3.2 — Verify Migrations Ran
+1. App Platform → **Backend** → **Console** tab
+2. Run: `alembic -c migrations/alembic.ini upgrade head`
+3. Or check startup logs — the Dockerfile CMD should have run this already
+
+### 3.3 — Test End-to-End
+- [ ] Frontend loads at its `.ondigitalocean.app` URL
+- [ ] API responds: `https://logihub-backend-xxx.ondigitalocean.app/health`
+- [ ] Login works (JWT auth)
+- [ ] Real-time dashboard (WebSocket at `/ws/dashboard`) updates
+- [ ] Telegram bot responds to messages
+
+### 3.4 — WebSocket Support
+App Platform's HTTP proxy supports WebSocket upgrades natively — no extra config needed.
+Your FastAPI `/ws/dashboard` endpoint will work as-is.
+
+---
+
+## Phase 4 — CI/CD (Built-In, Zero Config)
+
+Every push to `main` automatically triggers a rolling deploy. No YAML files needed.
+
+```
+git push origin main
+     │
+     ▼
+GitHub webhook → App Platform
+     │
+     ▼
+Build new Docker images (parallel)
+     │
+     ▼
+Rolling replace old containers (zero downtime)
+```
+
+If you want a staging environment: duplicate the App, point it to a `staging` branch.
+
+---
+
+## Phase 5 — Monitoring
+
+### 5.1 — Built-in App Platform Monitoring
+- CPU, RAM, network per service → App Platform dashboard
+- Real-time logs → **Runtime Logs** tab per service
+- Alerts → **Monitoring → Create Alert** (CPU > 80%, error spikes)
+
+### 5.2 — External Uptime Monitoring (Free)
+[UptimeRobot](https://uptimerobot.com) — free, checks every 5 minutes:
+- Monitor: `https://logihub-backend-xxxxx.ondigitalocean.app/health`
+- Monitor: `https://logihub-frontend-xxxxx.ondigitalocean.app`
+- Sends email or Telegram alert on downtime
+
+### 5.3 — Database Backups
+Supabase free tier includes daily backups + 7-day point-in-time recovery. No setup needed.
+
+---
+
+## Comparison: App Platform vs. Render
+
+| Feature | DO App Platform | Render (what you tried) |
+|---|---|---|
+| Free tier | No free tier (min $5/service) | Free tier (sleeps after 15min) |
+| Predictable pricing | Yes | Yes |
+| Docker support | Full Dockerfile support | Full Dockerfile support |
+| WebSocket | Native support | Native support |
+| Worker services | Native | Native |
+| Auto SSL | Yes | Yes |
+| GitHub auto-deploy | Yes | Yes |
+| Monthly min for 3 services | **$15** (with external DB) | **$21** (with PG, no free) |
+
+---
+
+## Security Checklist
+
+- [ ] All secrets as **Encrypted** env vars in App Platform (never in code or git)
+- [ ] `DATABASE_URL` uses Supabase's pooler URL with SSL
+- [ ] `NEXT_PUBLIC_API_URL` uses `https://`
+- [ ] CORS restricted to exact frontend domain only
+- [ ] `.env` excluded from git (check `.gitignore`)
+- [ ] Upstash Redis uses TLS URL (`rediss://` not `redis://`)
+
+---
+
+## Deployment Order Summary
+
+```
+[ ] Phase 0: Code Prep
+    [ ] Verify CORS loads from env var
+    [ ] Verify DATABASE_URL and REDIS_URL read from env
+    [ ] Commit + push to main
+
+[ ] Phase 1: External Services
+    [ ] Create Supabase project → copy DATABASE_URL
+    [ ] Create Upstash Redis → copy REDIS_URL
+
+[ ] Phase 2: DigitalOcean App Platform
+    [ ] Create new App → connect GitHub → select repo
+    [ ] Add Backend Web Service → set all env vars → deploy
+    [ ] Copy backend URL
+    [ ] Add Frontend Web Service → set NEXT_PUBLIC_API_URL → deploy
+    [ ] Add Bot Worker Service → set env vars → deploy
+
+[ ] Phase 3: Post-Deploy
+    [ ] Update CORS_ORIGINS to exact frontend URL
+    [ ] Verify DB migrations ran
+    [ ] Test: frontend loads, login works, API responds, bot replies, WebSocket works
+    [ ] Set up UptimeRobot monitors
+
+[ ] Phase 4: Ongoing
+    [ ] All future deploys: git push origin main (automatic)
+```
+
+---
+
+## FAQ
+
+**Q: Will WebSockets work on App Platform?**
+Yes. App Platform's proxy supports WebSocket upgrades natively. `/ws/dashboard` works without changes.
+
+**Q: Next.js `NEXT_PUBLIC_*` vars are build-time — what if the backend URL changes?**
+Update the env var in App Platform UI → trigger a manual redeploy of the frontend to rebuild the bundle.
+
+**Q: Can the Telegram bot run reliably as a Worker?**
+Yes. The Worker container runs continuously and is auto-restarted on crash. Polling is reliable for production at normal traffic.
+
+**Q: What if I exceed Supabase/Upstash free limits?**
+Supabase: upgrade to Pro ($25/mo) if you exceed 500MB. Upstash: upgrade to Pay-as-you-go (fractions of a cent per 10k commands). At LogiHub's expected scale, free tiers should last months.
+
+**Q: How do I scale if I need more performance?**
+App Platform: change the plan slider from Basic ($5) to Professional ($12/service) per service. No migration needed.
