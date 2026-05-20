@@ -2,10 +2,13 @@
 **/.next
 **/out
 **/build
-**/.env.local
-**/.env.development.local
-**/.env.test.local
-**/.env.production.local
+
+# ── Secrets — NEVER commit these ──────────────────────────────
+**/.env
+**/.env.*
+!**/.env.example
+
+# ── Python ────────────────────────────────────────────────────
 **/*.pyc
 **/__pycache__
 **/.pytest_cache
