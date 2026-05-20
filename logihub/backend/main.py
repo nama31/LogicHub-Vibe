@@ -1,5 +1,7 @@
 """Точка входа FastAPI приложения."""
 
+import os
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from routers import auth, products, orders, users, analytics, bot, routes as routes_router
@@ -7,9 +9,17 @@ from core.websocket import manager
 
 app = FastAPI(title="LogiHub API")
 
+# CORS origins are loaded from the CORS_ORIGINS env var (comma-separated).
+# Fallback supports local development and the legacy Render frontend URL.
+_cors_origins_raw = os.getenv(
+    "CORS_ORIGINS",
+    "http://localhost:3000,https://logihub-frontend.onrender.com",
+)
+_cors_origins = [o.strip() for o in _cors_origins_raw.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://logihub-frontend.onrender.com"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
