@@ -4,6 +4,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import type { User, UserRole } from "@/types/user";
 import type { UserCreateData, UserUpdateData } from "@/hooks/useUsers";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,6 +50,7 @@ const EMPTY_VALUES: UserFormData = {
 };
 
 export function UserModal({ user, open, onClose, onSubmit }: UserModalProps) {
+  const { user: currentUser } = useAuth();
   const isEdit = Boolean(user);
   const [values, setValues] = useState<UserFormData>(EMPTY_VALUES);
   const [errors, setErrors] = useState<UserFormErrors>({});
@@ -188,7 +190,9 @@ export function UserModal({ user, open, onClose, onSubmit }: UserModalProps) {
               <SelectContent>
                 <SelectItem value="courier">Курьер</SelectItem>
                 <SelectItem value="client">Клиент</SelectItem>
-                <SelectItem value="admin">Админ</SelectItem>
+                {currentUser?.is_superuser && (
+                  <SelectItem value="admin">Админ</SelectItem>
+                )}
               </SelectContent>
             </Select>
           </div>

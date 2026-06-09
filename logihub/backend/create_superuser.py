@@ -19,7 +19,9 @@ async def main() -> None:
         existing_user = result.scalar_one_or_none()
         
         if existing_user:
-            print("Суперпользователь уже существует.")
+            existing_user.is_superuser = True
+            await session.commit()
+            print("Суперпользователь уже существует (права обновлены).")
             return
 
         session.add(
@@ -29,6 +31,7 @@ async def main() -> None:
                 password_hash=get_password_hash("admin"),
                 phone="+996000000000",
                 is_active=True,
+                is_superuser=True,
             )
         )
         await session.commit()

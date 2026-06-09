@@ -41,6 +41,7 @@ class UserOut(BaseModel):
     tg_id: int | None = Field(None)
     phone: str | None = Field(None)
     is_active: bool = Field(...)
+    is_superuser: bool = Field(...)
     created_at: datetime = Field(...)
 
     class Config:

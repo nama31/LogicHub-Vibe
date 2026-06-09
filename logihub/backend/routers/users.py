@@ -1,11 +1,12 @@
 """Роутер пользователей."""
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException, status
 from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.dependencies import get_db, require_admin, require_admin_or_bot_secret
 from schemas.user import UserOut, UserCreate, UserUpdate
+from models.user import User
 from uuid import UUID
 from services.user_service import create_user as create_user_service, get_users as get_users_service, update_user as update_user_service, delete_user as delete_user_service
 
@@ -26,9 +27,12 @@ async def get_users(
 async def create_user(
     user: UserCreate,
     db: AsyncSession = Depends(get_db),
-    _admin: UserOut | None = Depends(require_admin),
+    _admin: User = Depends(require_admin),
 ) -> UserOut:
     """Создание пользователя (admin)."""
+    
+    if user.role == "admin" and not getattr(_admin, "is_superuser", False):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only superuser can create an admin")
 
     return await create_user_service(user, db)
 
@@ -37,9 +41,12 @@ async def update_user(
     id: UUID,
     user: UserUpdate,
     db: AsyncSession = Depends(get_db),
-    _admin: UserOut | None = Depends(require_admin),
+    _admin: User = Depends(require_admin),
 ) -> UserOut:
     """Обновление пользователя (admin)."""
+    
+    if user.role == "admin" and not getattr(_admin, "is_superuser", False):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only superuser can assign admin role")
 
     return await update_user_service(id, user, db)
 

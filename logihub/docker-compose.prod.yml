@@ -1,0 +1,108 @@
+version: '3.8'
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: logihub_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+
+  db:
+    image: postgres:15-alpine
+    container_name: logihub_db_prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-logihub}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-logihub_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-logihub}
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-logihub} -d ${POSTGRES_DB:-logihub}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:alpine
+    container_name: logihub_redis_prod
+    restart: unless-stopped
+    volumes:
+      - redis_data_prod:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: logihub_backend_prod
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-logihub}:${DB_PASSWORD:-logihub_secret}@db:5432/${POSTGRES_DB:-logihub}
+      - REDIS_URL=redis://redis:6379/0
+      - CORS_ORIGINS=https://${DOMAIN:-localhost}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - backend_media:/app/backend/media
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        - NEXT_PUBLIC_API_URL=https://${DOMAIN:-localhost}/api
+    container_name: logihub_frontend_prod
+    restart: unless-stopped
+    environment:
+      - PORT=3000
+    depends_on:
+      - backend
+
+  bot:
+    build:
+      context: ./bot
+      dockerfile: Dockerfile.prod
+    container_name: logihub_bot_prod
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-logihub}:${DB_PASSWORD:-logihub_secret}@db:5432/${POSTGRES_DB:-logihub}
+      - BACKEND_URL=http://backend:8000
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - BOT_SECRET=${BOT_SECRET}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_started
+
+volumes:
+  postgres_data_prod:
+  redis_data_prod:
+  caddy_data:
+  caddy_config:
+  backend_media:

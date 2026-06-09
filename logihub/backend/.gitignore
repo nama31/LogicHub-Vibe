@@ -1,18 +1,10 @@
-**/node_modules
-**/.next
-**/out
-**/build
-
 # ── Secrets — NEVER commit these ──────────────────────────────
-**/.env
-**/.env.*
-!**/.env.example
+*.env
+*.env.*
+!*.env.example
 
 # ── Python ────────────────────────────────────────────────────
-*.py[cod]
-*$py.class
-__pycache__/
-.pytest_cache/
-.venv/
-env/
-venv/
+*.pyc
+__pycache__
+.pytest_cache
+

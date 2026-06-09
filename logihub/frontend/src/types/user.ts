@@ -7,6 +7,7 @@ export interface User {
   tg_id?: number | null;
   phone?: string | null;
   is_active: boolean;
+  is_superuser?: boolean;
   created_at?: string;
 }
 
