@@ -38,7 +38,7 @@
 
 ---
 
-## Change 2 — Data Isolation per Admin
+## Change 2 — Data Isolation per Admin [DONE]
 
 **Problem:** All admins see all orders, products, couriers, and routes. There is no ownership concept.
 

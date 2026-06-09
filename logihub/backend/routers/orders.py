@@ -19,11 +19,12 @@ async def get_orders(
     courier_id: UUID | None = None,
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin)
 ) -> List[OrderListOut]:
     """Получение списка заказов (admin)."""
 
-    return await get_orders_service(db, status=status, courier_id=courier_id, limit=limit, offset=offset)
+    return await get_orders_service(db, status=status, courier_id=courier_id, limit=limit, offset=offset, current_user=current_user)
 
 from fastapi.responses import StreamingResponse
 from services.order_service import export_orders_csv
@@ -32,26 +33,27 @@ from services.order_service import export_orders_csv
 async def export_orders(
     status: str | None = None,
     courier_id: UUID | None = None,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin)
 ):
     """Экспорт списка заказов в CSV (admin)."""
-    csv_data = await export_orders_csv(db, status=status, courier_id=courier_id)
+    csv_data = await export_orders_csv(db, status=status, courier_id=courier_id, current_user=current_user)
     
     response = StreamingResponse(iter([csv_data]), media_type="text/csv")
     response.headers["Content-Disposition"] = "attachment; filename=orders_export.csv"
     return response
 
 @router.get("/{id}", response_model=OrderOut)
-async def get_order_by_id(id: int, db: AsyncSession = Depends(get_db)) -> OrderOut:
+async def get_order_by_id(id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_admin)) -> OrderOut:
     """Получение заказа по ID (admin)."""
 
-    return await get_order_by_id_service(id, db)
+    return await get_order_by_id_service(id, db, current_user=current_user)
 
 @router.get("/{id}/timeline", response_model=List[StatusEntryOut])
-async def get_order_timeline(id: int, db: AsyncSession = Depends(get_db)) -> List[StatusEntryOut]:
+async def get_order_timeline(id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_admin)) -> List[StatusEntryOut]:
     """Получение истории статусов заказа (admin)."""
 
-    return await get_order_timeline_service(id, db)
+    return await get_order_timeline_service(id, db, current_user=current_user)
 
 @router.post("", response_model=OrderOut)
 async def create_order(order_data: OrderCreate, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_admin)) -> OrderOut:
@@ -73,10 +75,10 @@ async def update_order(id: int, order_data: OrderUpdate, background_tasks: Backg
     return order
 
 @router.delete("/{id}")
-async def delete_order(id: int, db: AsyncSession = Depends(get_db)) -> dict:
+async def delete_order(id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_admin)) -> dict:
     """Удаление заказа (admin)."""
 
-    await delete_order_service(id, db)
+    await delete_order_service(id, db, current_user=current_user)
     return {"detail": "deleted"}
 
 @router.post("/{id}/assign", response_model=OrderOut)

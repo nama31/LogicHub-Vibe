@@ -44,7 +44,7 @@ async def list_routes(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ) -> RouteListResponse:
     """Список маршрутов с фильтрацией (admin)."""
     routes = await route_service.list_routes(
@@ -53,8 +53,9 @@ async def list_routes(
         courier_id=courier_id,
         limit=limit,
         offset=offset,
+        current_user=current_user,
     )
-    total = await route_service.count_routes(db, route_status=route_status, courier_id=courier_id)
+    total = await route_service.count_routes(db, route_status=route_status, courier_id=courier_id, current_user=current_user)
     return RouteListResponse(total=total, routes=routes)
 
 
@@ -62,10 +63,10 @@ async def list_routes(
 async def get_route(
     route_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ) -> RouteOut:
     """Полный маршрут со всеми остановками (admin)."""
-    return await route_service.get_route(route_id, db)
+    return await route_service.get_route(route_id, db, current_user=current_user)
 
 
 @router.patch("/{route_id}", response_model=RouteOut)
@@ -73,20 +74,20 @@ async def update_route(
     route_id: UUID,
     data: RouteUpdate,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ) -> RouteOut:
     """Изменить метку или курьера маршрута (только в статусе 'draft')."""
-    return await route_service.update_route(route_id, data, db)
+    return await route_service.update_route(route_id, data, db, current_user=current_user)
 
 
 @router.delete("/{route_id}", status_code=http_status.HTTP_204_NO_CONTENT)
 async def cancel_route(
     route_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ) -> None:
     """Отменить и удалить черновик маршрута (только 'draft'). Заказы возвращаются в 'new'."""
-    await route_service.cancel_route(route_id, db)
+    await route_service.cancel_route(route_id, db, current_user=current_user)
 
 
 @router.post("/{route_id}/start", response_model=RouteOut)
@@ -94,10 +95,10 @@ async def start_route(
     route_id: UUID,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ) -> RouteOut:
     """Активировать маршрут (draft → active). Отправляет уведомление курьеру в Telegram."""
-    route_out = await route_service.start_route(route_id, db)
+    route_out = await route_service.start_route(route_id, db, current_user=current_user)
     
     # 1. Уведомление курьеру
     background_tasks.add_task(notify_route_started, route_out.id)

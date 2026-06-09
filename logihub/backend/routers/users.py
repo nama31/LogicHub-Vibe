@@ -17,11 +17,11 @@ async def get_users(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
-    _auth: UserOut | None = Depends(require_admin_or_bot_secret),
+    _auth: User | None = Depends(require_admin_or_bot_secret),
 ) -> List[UserOut]:
     """Получение списка пользователей (admin)."""
 
-    return await get_users_service(db, limit=limit, offset=offset)
+    return await get_users_service(db, limit=limit, offset=offset, current_user=_auth)
 
 @router.post("", response_model=UserOut)
 async def create_user(
@@ -34,7 +34,7 @@ async def create_user(
     if user.role == "admin" and not getattr(_admin, "is_superuser", False):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only superuser can create an admin")
 
-    return await create_user_service(user, db)
+    return await create_user_service(user, db, current_user=_admin)
 
 @router.patch("/{id}", response_model=UserOut)
 async def update_user(
@@ -48,14 +48,14 @@ async def update_user(
     if user.role == "admin" and not getattr(_admin, "is_superuser", False):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only superuser can assign admin role")
 
-    return await update_user_service(id, user, db)
+    return await update_user_service(id, user, db, current_user=_admin)
 
 @router.delete("/{id}", status_code=204)
 async def delete_user(
     id: UUID,
     db: AsyncSession = Depends(get_db),
-    _admin: UserOut | None = Depends(require_admin),
+    _admin: User = Depends(require_admin),
 ) -> None:
     """Удаление пользователя (admin)."""
 
-    await delete_user_service(id, db)
+    await delete_user_service(id, db, current_user=_admin)

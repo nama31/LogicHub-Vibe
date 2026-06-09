@@ -10,6 +10,7 @@ export type UserCreateData = {
   role: UserRole;
   tg_id?: number | null;
   phone?: string;
+  password?: string;
 };
 
 export type UserUpdateData = {
@@ -18,6 +19,7 @@ export type UserUpdateData = {
   tg_id?: number | null;
   phone?: string;
   is_active?: boolean;
+  password?: string;
 };
 
 export function useUsers(params?: { role?: UserRole; isActive?: boolean }) {

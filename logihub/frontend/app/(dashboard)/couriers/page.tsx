@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useUsers } from "@/hooks/useUsers";
+import { useAuth } from "@/hooks/useAuth";
 import { UserTable } from "@/components/couriers/UserTable";
 import { UserModal } from "@/components/couriers/UserModal";
 import { Button } from "@/components/ui/button";
@@ -16,11 +17,13 @@ type UserSubmitData = UserCreateData & Pick<UserUpdateData, "is_active">;
 
 export default function UsersPage() {
   const { users, loading, createUser, updateUser, deleteUser } = useUsers();
+  const { user: currentUser } = useAuth();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | undefined>(undefined);
 
   const couriers = users.filter(u => u.role === "courier");
   const clients = users.filter(u => u.role === "client");
+  const admins = users.filter(u => u.role === "admin");
 
   const handleOpenCreate = () => {
     setEditingUser(undefined);
@@ -82,6 +85,11 @@ export default function UsersPage() {
           <TabsTrigger value="clients">
             Клиенты
           </TabsTrigger>
+          {currentUser?.is_superuser && (
+            <TabsTrigger value="admins">
+              Админы
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {loading ? (
@@ -98,6 +106,11 @@ export default function UsersPage() {
             <TabsContent value="clients" className="mt-6">
               <UserTable users={clients} onEdit={handleOpenEdit} onDelete={handleDelete} />
             </TabsContent>
+            {currentUser?.is_superuser && (
+              <TabsContent value="admins" className="mt-6">
+                <UserTable users={admins} onEdit={handleOpenEdit} onDelete={handleDelete} />
+              </TabsContent>
+            )}
           </>
         )}
       </Tabs>

@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from constants.price import tiyins_to_som
 from models.order import Order
 from models.product import Product
+from models.user import User
 from schemas.analytics import SummaryOut, ProfitOut
 
 
@@ -18,17 +19,17 @@ def _date_start(day: date) -> datetime:
 def _date_end(day: date) -> datetime:
     return _date_start(day + timedelta(days=1))
 
-async def get_summary(db: AsyncSession) -> SummaryOut:
+async def get_summary(db: AsyncSession, current_user: User | None = None) -> SummaryOut:
     """Получить сводку."""
 
     today = datetime.now(UTC).date()
     week_start = today - timedelta(days=today.weekday())
     tomorrow = today + timedelta(days=1)
 
-    today_summary = await _get_period_summary(db, today, tomorrow)
-    week_summary = await _get_period_summary(db, week_start, tomorrow)
-    open_orders = await _get_open_orders(db)
-    stock_alerts = await _get_stock_alerts(db)
+    today_summary = await _get_period_summary(db, today, tomorrow, current_user=current_user)
+    week_summary = await _get_period_summary(db, week_start, tomorrow, current_user=current_user)
+    open_orders = await _get_open_orders(db, current_user=current_user)
+    stock_alerts = await _get_stock_alerts(db, current_user=current_user)
 
     return SummaryOut(
         today=today_summary,
@@ -37,16 +38,17 @@ async def get_summary(db: AsyncSession) -> SummaryOut:
         open_orders=open_orders,
     )
 
-async def get_profit(db: AsyncSession, from_date: date | None = None, to_date: date | None = None) -> ProfitOut:
+async def get_profit(db: AsyncSession, from_date: date | None = None, to_date: date | None = None, current_user: User | None = None) -> ProfitOut:
     """Получить аналитику прибыли."""
 
     if not from_date or not to_date:
-        result = await db.execute(
-            select(
-                func.min(func.date(Order.created_at)).label("min_date"),
-                func.max(func.date(Order.created_at)).label("max_date"),
-            )
+        stmt = select(
+            func.min(func.date(Order.created_at)).label("min_date"),
+            func.max(func.date(Order.created_at)).label("max_date"),
         )
+        if current_user and not getattr(current_user, "is_superuser", False):
+            stmt = stmt.where(Order.admin_id == current_user.id)
+        result = await db.execute(stmt)
         row = result.one()
         from_date = from_date or row.min_date
         to_date = to_date or row.max_date
@@ -86,9 +88,11 @@ async def get_profit(db: AsyncSession, from_date: date | None = None, to_date: d
         .select_from(Order)
         .join(Product, Product.id == Order.product_id)
         .where(Order.created_at >= start_dt, Order.created_at < end_dt)
-        .group_by(day_label)
-        .order_by(day_label)
     )
+    if current_user and not getattr(current_user, "is_superuser", False):
+        statement = statement.where(Order.admin_id == current_user.id)
+
+    statement = statement.group_by(day_label).order_by(day_label)
 
     result = await db.execute(statement)
     rows = result.all()
@@ -114,7 +118,7 @@ async def get_profit(db: AsyncSession, from_date: date | None = None, to_date: d
     )
 
 
-async def _get_period_summary(db: AsyncSession, start_date: date, end_date: date) -> "SummaryPeriodOut":
+async def _get_period_summary(db: AsyncSession, start_date: date, end_date: date, current_user: User | None = None) -> "SummaryPeriodOut":
     from schemas.analytics import SummaryPeriodOut
 
     statement = (
@@ -133,6 +137,9 @@ async def _get_period_summary(db: AsyncSession, start_date: date, end_date: date
         .join(Product, Product.id == Order.product_id)
         .where(Order.created_at >= _date_start(start_date), Order.created_at < _date_start(end_date))
     )
+    
+    if current_user and not getattr(current_user, "is_superuser", False):
+        statement = statement.where(Order.admin_id == current_user.id)
 
     result = await db.execute(statement)
     row = result.one()
@@ -144,14 +151,17 @@ async def _get_period_summary(db: AsyncSession, start_date: date, end_date: date
     )
 
 
-async def _get_open_orders(db: AsyncSession):
+async def _get_open_orders(db: AsyncSession, current_user: User | None = None):
     from schemas.analytics import OpenOrderCountsOut
 
     statement = (
         select(Order.status, func.count(Order.id).label("count"))
         .where(Order.status.in_(["new", "assigned", "in_transit"]))
-        .group_by(Order.status)
     )
+    if current_user and not getattr(current_user, "is_superuser", False):
+        statement = statement.where(Order.admin_id == current_user.id)
+        
+    statement = statement.group_by(Order.status)
     result = await db.execute(statement)
     counts = {row.status: int(row.count or 0) for row in result.all()}
 
@@ -162,13 +172,16 @@ async def _get_open_orders(db: AsyncSession):
     )
 
 
-async def _get_stock_alerts(db: AsyncSession):
+async def _get_stock_alerts(db: AsyncSession, current_user: User | None = None):
     from schemas.analytics import StockAlertOut
 
     # Получаем 5 товаров с самым низким остатком в принципе
+    stmt = select(Product.id, Product.title, Product.stock_quantity)
+    if current_user and not getattr(current_user, "is_superuser", False):
+        stmt = stmt.where(Product.admin_id == current_user.id)
+        
     result = await db.execute(
-        select(Product.id, Product.title, Product.stock_quantity)
-        .order_by(Product.stock_quantity.asc(), Product.title.asc())
+        stmt.order_by(Product.stock_quantity.asc(), Product.title.asc())
         .limit(5)
     )
 
@@ -178,39 +191,37 @@ async def _get_stock_alerts(db: AsyncSession):
     ]
 
 
-async def get_courier_analytics(db: AsyncSession) -> "CourierAnalyticsOut":
+async def get_courier_analytics(db: AsyncSession, current_user: User | None = None) -> "CourierAnalyticsOut":
     from schemas.analytics import CourierAnalyticsOut, CourierStatOut
     from models.user import User
     from models.route import Route
 
-    route_counts = (
-        select(
-            Route.courier_id.label("courier_id"),
-            func.count(Route.id).label("routes_count"),
-        )
-        .group_by(Route.courier_id)
-        .subquery()
+    route_stmt = select(
+        Route.courier_id.label("courier_id"),
+        func.count(Route.id).label("routes_count"),
     )
-    order_counts = (
-        select(
-            Order.courier_id.label("courier_id"),
-            func.count(Order.id).label("stops_total"),
-            func.coalesce(
-                func.sum(case((Order.status == "delivered", 1), else_=0)),
-                0,
-            ).label("stops_delivered"),
-            func.coalesce(
-                func.sum(case((Order.status == "failed", 1), else_=0)),
-                0,
-            ).label("stops_failed"),
-            func.coalesce(
-                func.sum(case((Order.status == "delivered", Order.courier_fee), else_=0)),
-                0,
-            ).label("total_fee_som"),
-        )
-        .group_by(Order.courier_id)
-        .subquery()
+    if current_user and not getattr(current_user, "is_superuser", False):
+        route_stmt = route_stmt.where(Route.admin_id == current_user.id)
+    route_counts = route_stmt.group_by(Route.courier_id).subquery()
+    order_stmt = select(
+        Order.courier_id.label("courier_id"),
+        func.count(Order.id).label("stops_total"),
+        func.coalesce(
+            func.sum(case((Order.status == "delivered", 1), else_=0)),
+            0,
+        ).label("stops_delivered"),
+        func.coalesce(
+            func.sum(case((Order.status == "failed", 1), else_=0)),
+            0,
+        ).label("stops_failed"),
+        func.coalesce(
+            func.sum(case((Order.status == "delivered", Order.courier_fee), else_=0)),
+            0,
+        ).label("total_fee_som"),
     )
+    if current_user and not getattr(current_user, "is_superuser", False):
+        order_stmt = order_stmt.where(Order.admin_id == current_user.id)
+    order_counts = order_stmt.group_by(Order.courier_id).subquery()
     statement = (
         select(
             User.id,
@@ -225,8 +236,12 @@ async def get_courier_analytics(db: AsyncSession) -> "CourierAnalyticsOut":
         .outerjoin(route_counts, route_counts.c.courier_id == User.id)
         .outerjoin(order_counts, order_counts.c.courier_id == User.id)
         .where(User.role == "courier")
-        .order_by(func.coalesce(route_counts.c.routes_count, 0).desc())
     )
+    
+    if current_user and not getattr(current_user, "is_superuser", False):
+        statement = statement.where(User.admin_id == current_user.id)
+        
+    statement = statement.order_by(func.coalesce(route_counts.c.routes_count, 0).desc())
 
     result = await db.execute(statement)
     
@@ -247,7 +262,7 @@ async def get_courier_analytics(db: AsyncSession) -> "CourierAnalyticsOut":
     return CourierAnalyticsOut(couriers=couriers)
 
 
-async def get_product_analytics(db: AsyncSession) -> "ProductAnalyticsOut":
+async def get_product_analytics(db: AsyncSession, current_user: User | None = None) -> "ProductAnalyticsOut":
     from schemas.analytics import ProductAnalyticsOut, ProductMarginOut
 
     statement = (
@@ -261,9 +276,12 @@ async def get_product_analytics(db: AsyncSession) -> "ProductAnalyticsOut":
         )
         .select_from(Product)
         .outerjoin(Order, Order.product_id == Product.id)
-        .group_by(Product.id)
-        .order_by(func.sum(case((Order.status == "delivered", Order.quantity), else_=0)).desc())
     )
+    
+    if current_user and not getattr(current_user, "is_superuser", False):
+        statement = statement.where(Product.admin_id == current_user.id)
+        
+    statement = statement.group_by(Product.id).order_by(func.sum(case((Order.status == "delivered", Order.quantity), else_=0)).desc())
 
     result = await db.execute(statement)
 
@@ -291,7 +309,7 @@ async def get_product_analytics(db: AsyncSession) -> "ProductAnalyticsOut":
     return ProductAnalyticsOut(products=products)
 
 
-async def get_trend_analytics(db: AsyncSession) -> "TrendAnalyticsOut":
+async def get_trend_analytics(db: AsyncSession, current_user: User | None = None) -> "TrendAnalyticsOut":
     from schemas.analytics import TrendAnalyticsOut, TrendItemOut
 
     # Последние 30 дней
@@ -308,9 +326,12 @@ async def get_trend_analytics(db: AsyncSession) -> "TrendAnalyticsOut":
         .select_from(Order)
         .join(Product, Product.id == Order.product_id)
         .where(Order.created_at >= start_dt)
-        .group_by(day_label)
-        .order_by(day_label)
     )
+    
+    if current_user and not getattr(current_user, "is_superuser", False):
+        statement = statement.where(Order.admin_id == current_user.id)
+
+    statement = statement.group_by(day_label).order_by(day_label)
 
     result = await db.execute(statement)
 
@@ -327,7 +348,7 @@ async def get_trend_analytics(db: AsyncSession) -> "TrendAnalyticsOut":
     return TrendAnalyticsOut(trends=trends)
 
 
-async def get_failed_analytics(db: AsyncSession) -> "FailedAnalyticsOut":
+async def get_failed_analytics(db: AsyncSession, current_user: User | None = None) -> "FailedAnalyticsOut":
     from schemas.analytics import FailedAnalyticsOut, FailedReasonOut
 
     # Анализируем поле note у заказов со статусом failed
@@ -338,9 +359,12 @@ async def get_failed_analytics(db: AsyncSession) -> "FailedAnalyticsOut":
         )
         .select_from(Order)
         .where(Order.status == "failed")
-        .group_by(Order.note)
-        .order_by(func.count(Order.id).desc())
     )
+    
+    if current_user and not getattr(current_user, "is_superuser", False):
+        statement = statement.where(Order.admin_id == current_user.id)
+
+    statement = statement.group_by(Order.note).order_by(func.count(Order.id).desc())
 
     result = await db.execute(statement)
 

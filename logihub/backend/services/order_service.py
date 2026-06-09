@@ -21,6 +21,7 @@ async def get_orders(
     courier_id: UUID | None = None,
     limit: int | None = 100,
     offset: int = 0,
+    current_user: User | None = None,
 ) -> List[Order]:
     """Получить заказы с фильтрацией."""
 
@@ -34,6 +35,9 @@ async def get_orders(
         statement = statement.where(Order.status == status)
     if courier_id:
         statement = statement.where(Order.courier_id == courier_id)
+        
+    if current_user and not getattr(current_user, "is_superuser", False):
+        statement = statement.where(Order.admin_id == current_user.id)
 
     if limit is not None:
         statement = statement.limit(limit).offset(offset)
@@ -42,12 +46,12 @@ async def get_orders(
     orders = list(result.scalars().all())
     return serialize_order_collection(orders)
 
-async def get_order_by_id(id: int, db: AsyncSession) -> Order:
+async def get_order_by_id(id: int, db: AsyncSession, current_user: User | None = None) -> Order:
     """Получить заказ по ID."""
-    order = await _get_order_with_relationships(id, db)
+    order = await _get_order_with_relationships(id, db, current_user)
     return serialize_order_prices(order)
 
-async def _get_order_with_relationships(id: int, db: AsyncSession) -> Order:
+async def _get_order_with_relationships(id: int, db: AsyncSession, current_user: User | None = None) -> Order:
     """Получить заказ со связями продукта и курьера."""
     result = await db.execute(
         select(Order)
@@ -57,10 +61,15 @@ async def _get_order_with_relationships(id: int, db: AsyncSession) -> Order:
     order = result.scalar_one_or_none()
     if order is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+        
+    if current_user and not getattr(current_user, "is_superuser", False) and order.admin_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+        
     return order
 
-async def get_order_timeline(id: int, db: AsyncSession) -> List[OrderStatusLog]:
+async def get_order_timeline(id: int, db: AsyncSession, current_user: User | None = None) -> List[OrderStatusLog]:
     """Получить историю статусов заказа."""
+    await _get_order_with_relationships(id, db, current_user)  # Check access
     result = await db.execute(
         select(OrderStatusLog)
         .where(OrderStatusLog.order_id == id)
@@ -96,7 +105,8 @@ async def create_order(data: OrderCreate, db: AsyncSession, changed_by: User | N
         customer_phone=data.customer_phone,
         delivery_address=data.delivery_address,
         note=data.note,
-        status="assigned" if courier_id else "new"
+        status="assigned" if courier_id else "new",
+        admin_id=changed_by.id if changed_by else None
     )
 
     product.stock_quantity -= data.quantity
@@ -118,6 +128,9 @@ async def update_order(id: int, data: OrderUpdate, db: AsyncSession, changed_by:
     order = await db.get(Order, id)
     if order is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+        
+    if changed_by and not getattr(changed_by, "is_superuser", False) and order.admin_id != changed_by.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
     original_status = order.status
     original_product_id = order.product_id
@@ -167,12 +180,15 @@ async def update_order(id: int, data: OrderUpdate, db: AsyncSession, changed_by:
 
     return order
 
-async def delete_order(id: int, db: AsyncSession) -> None:
+async def delete_order(id: int, db: AsyncSession, current_user: User | None = None) -> None:
     """Удалить заказ."""
 
     order = await db.get(Order, id)
     if order is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+        
+    if current_user and not getattr(current_user, "is_superuser", False) and order.admin_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
     product = await db.get(Product, order.product_id)
     if product is not None:
@@ -199,6 +215,9 @@ async def assign_order(id: int, courier_id: UUID, db: AsyncSession, changed_by: 
     
     if order is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+        
+    if changed_by and not getattr(changed_by, "is_superuser", False) and order.admin_id != changed_by.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
     courier = await db.get(User, courier_id)
     if courier is None:
@@ -244,9 +263,9 @@ async def _get_product_for_update(product_id: UUID, db: AsyncSession) -> Product
 import csv
 import io
 
-async def export_orders_csv(db: AsyncSession, status: str | None = None, courier_id: UUID | None = None) -> str:
+async def export_orders_csv(db: AsyncSession, status: str | None = None, courier_id: UUID | None = None, current_user: User | None = None) -> str:
     """Экспорт заказов в CSV."""
-    orders = await get_orders(db, status=status, courier_id=courier_id, limit=None)
+    orders = await get_orders(db, status=status, courier_id=courier_id, limit=None, current_user=current_user)
     
     output = io.StringIO()
     writer = csv.writer(output)

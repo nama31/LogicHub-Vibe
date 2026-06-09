@@ -50,7 +50,7 @@ def _route_counters(stops: list[Order]) -> dict:
     return {"stops_total": len(stops), "stops_delivered": delivered, "stops_failed": failed}
 
 
-async def _fetch_route(route_id: UUID, db: AsyncSession, *, lock: bool = False) -> Route:
+async def _fetch_route(route_id: UUID, db: AsyncSession, *, lock: bool = False, current_user: User | None = None) -> Route:
     """Загрузить маршрут со всеми связями. Опционально с FOR UPDATE."""
     stmt = (
         select(Route)
@@ -60,6 +60,8 @@ async def _fetch_route(route_id: UUID, db: AsyncSession, *, lock: bool = False) 
         )
         .where(Route.id == route_id)
     )
+    if current_user and not getattr(current_user, "is_superuser", False):
+        stmt = stmt.where(Route.admin_id == current_user.id)
     if lock:
         stmt = stmt.with_for_update()
     result = await db.execute(stmt)
@@ -156,6 +158,7 @@ async def create_route(data: RouteCreate, created_by: UUID, db: AsyncSession) ->
     route = Route(
         courier_id=data.courier_id,
         created_by=created_by,
+        admin_id=created_by,
         label=data.label,
         status="draft",
     )
@@ -188,6 +191,7 @@ async def list_routes(
     courier_id: UUID | None = None,
     limit: int = 100,
     offset: int = 0,
+    current_user: User | None = None,
 ) -> list[RouteListItem]:
     """Список маршрутов с фильтрацией."""
     stops_total = func.count(Order.id).label("stops_total")
@@ -213,6 +217,8 @@ async def list_routes(
         stmt = stmt.where(Route.status == route_status)
     if courier_id:
         stmt = stmt.where(Route.courier_id == courier_id)
+    if current_user and not getattr(current_user, "is_superuser", False):
+        stmt = stmt.where(Route.admin_id == current_user.id)
 
     result = await db.execute(stmt)
     return [
@@ -230,12 +236,15 @@ async def count_routes(
     db: AsyncSession,
     route_status: str | None = None,
     courier_id: UUID | None = None,
+    current_user: User | None = None,
 ) -> int:
     stmt = select(func.count(Route.id))
     if route_status:
         stmt = stmt.where(Route.status == route_status)
     if courier_id:
         stmt = stmt.where(Route.courier_id == courier_id)
+    if current_user and not getattr(current_user, "is_superuser", False):
+        stmt = stmt.where(Route.admin_id == current_user.id)
     return int(await db.scalar(stmt) or 0)
 
 
@@ -255,15 +264,15 @@ async def get_active_route_for_courier_tg_id(tg_id: int, db: AsyncSession) -> Ro
     return _route_to_out(route)
 
 
-async def get_route(route_id: UUID, db: AsyncSession) -> RouteOut:
+async def get_route(route_id: UUID, db: AsyncSession, current_user: User | None = None) -> RouteOut:
     """Получить полный маршрут по ID."""
-    route = await _fetch_route(route_id, db)
+    route = await _fetch_route(route_id, db, current_user=current_user)
     return _route_to_out(route)
 
 
-async def update_route(route_id: UUID, data: RouteUpdate, db: AsyncSession) -> RouteOut:
+async def update_route(route_id: UUID, data: RouteUpdate, db: AsyncSession, current_user: User | None = None) -> RouteOut:
     """Обновить маршрут (в статусе 'pending' или 'draft')."""
-    route = await _fetch_route(route_id, db)
+    route = await _fetch_route(route_id, db, current_user=current_user)
     if route.status not in ("pending", "draft"):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -297,9 +306,9 @@ async def update_route(route_id: UUID, data: RouteUpdate, db: AsyncSession) -> R
     return _route_to_out(route)
 
 
-async def cancel_route(route_id: UUID, db: AsyncSession) -> None:
+async def cancel_route(route_id: UUID, db: AsyncSession, current_user: User | None = None) -> None:
     """Отменить маршрут (pending или draft). Возвращает заказы в статус 'new'."""
-    route = await _fetch_route(route_id, db)
+    route = await _fetch_route(route_id, db, current_user=current_user)
     if route.status not in ("pending", "draft"):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -324,7 +333,7 @@ async def cancel_route(route_id: UUID, db: AsyncSession) -> None:
 #  Route lifecycle: start / complete stop
 # ─────────────────────────────────────────────────────
 
-async def start_route(route_id: UUID, db: AsyncSession) -> RouteOut:
+async def start_route(route_id: UUID, db: AsyncSession, current_user: User | None = None) -> RouteOut:
     """Активировать маршрут (pending/draft → active).
     
     - Если маршрут был 'pending', он должен иметь назначенного курьера.
@@ -333,7 +342,7 @@ async def start_route(route_id: UUID, db: AsyncSession) -> RouteOut:
     """
     import datetime as dt
 
-    route = await _fetch_route(route_id, db, lock=True)
+    route = await _fetch_route(route_id, db, lock=True, current_user=current_user)
     if route.status not in ("pending", "draft"):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

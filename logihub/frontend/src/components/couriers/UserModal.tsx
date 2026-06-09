@@ -30,6 +30,7 @@ type UserFormData = {
   tg_id: number | null;
   phone?: string;
   is_active?: boolean;
+  password?: string;
 };
 type UserSubmitData = UserCreateData & Pick<UserUpdateData, "is_active">;
 
@@ -47,6 +48,7 @@ const EMPTY_VALUES: UserFormData = {
   role: "courier",
   tg_id: null,
   phone: "",
+  password: "",
 };
 
 export function UserModal({ user, open, onClose, onSubmit }: UserModalProps) {
@@ -111,6 +113,10 @@ export function UserModal({ user, open, onClose, onSubmit }: UserModalProps) {
       nextErrors.name = "Введите имя";
     }
 
+    if (nextValues.role === "admin" && !isEdit && !nextValues.password?.trim()) {
+      nextErrors.password = "Введите пароль для входа в панель";
+    }
+
     if (nextValues.role !== "admin" && !nextValues.phone?.trim()) {
       nextErrors.phone = "Введите номер телефона для регистрации в боте";
     }
@@ -138,6 +144,7 @@ export function UserModal({ user, open, onClose, onSubmit }: UserModalProps) {
         tg_id: values.tg_id,
         ...(cleanPhone ? { phone: cleanPhone } : {}),
         is_active: values.is_active,
+        ...(values.password ? { password: values.password } : {}),
       });
       onClose();
     } finally {
@@ -232,6 +239,21 @@ export function UserModal({ user, open, onClose, onSubmit }: UserModalProps) {
             />
             {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
           </div>
+
+          {values.role === "admin" && (
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-ocean font-medium">Пароль {isEdit && "(оставьте пустым, чтобы не менять)"}</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="Минимум 6 символов"
+                className="text-ocean"
+                value={values.password || ""}
+                onChange={(e) => updateField("password", e.target.value)}
+              />
+              {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
+            </div>
+          )}
 
           {isEdit && (
             <div className="flex items-center space-x-2 pt-2">

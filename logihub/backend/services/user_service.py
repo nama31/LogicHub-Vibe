@@ -11,10 +11,14 @@ from schemas.user import UserCreate, UserUpdate
 from models.user import User
 from uuid import UUID
 
-async def get_users(db: AsyncSession, limit: int = 100, offset: int = 0) -> List[User]:
+async def get_users(db: AsyncSession, limit: int = 100, offset: int = 0, current_user: User | None = None) -> List[User]:
     """Получить пользователей."""
 
-    result = await db.execute(select(User).order_by(User.created_at.desc()).limit(limit).offset(offset))
+    statement = select(User).order_by(User.created_at.desc())
+    if current_user and not getattr(current_user, "is_superuser", False):
+        statement = statement.where((User.admin_id == current_user.id) | (User.id == current_user.id))
+        
+    result = await db.execute(statement.limit(limit).offset(offset))
     return list(result.scalars().all())
 
 async def get_user_by_phone(phone: str, db: AsyncSession) -> User | None:
@@ -40,7 +44,7 @@ async def get_user_by_phone(phone: str, db: AsyncSession) -> User | None:
     )
     return result.scalars().first()
 
-async def create_user(data: UserCreate, db: AsyncSession) -> User:
+async def create_user(data: UserCreate, db: AsyncSession, current_user: User | None = None) -> User:
     """Создать пользователя."""
 
     if data.tg_id is not None:
@@ -55,6 +59,7 @@ async def create_user(data: UserCreate, db: AsyncSession) -> User:
         phone=data.phone,
         is_active=True if data.is_active is None else data.is_active,
         password_hash=get_password_hash(data.password) if data.password else None,
+        admin_id=current_user.id if current_user else None,
     )
 
     db.add(user)
@@ -68,12 +73,15 @@ async def create_user(data: UserCreate, db: AsyncSession) -> User:
     await db.refresh(user)
     return user
 
-async def update_user(id: UUID, data: UserUpdate, db: AsyncSession) -> User:
+async def update_user(id: UUID, data: UserUpdate, db: AsyncSession, current_user: User | None = None) -> User:
     """Обновить пользователя."""
 
     user = await db.get(User, id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        
+    if current_user and not getattr(current_user, "is_superuser", False) and user.admin_id != current_user.id and user.id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
     if data.tg_id is not None and data.tg_id != user.tg_id:
         existing = await db.scalar(select(User).where(User.tg_id == data.tg_id, User.id != id))
@@ -98,12 +106,15 @@ async def update_user(id: UUID, data: UserUpdate, db: AsyncSession) -> User:
     await db.refresh(user)
     return user
 
-async def delete_user(id: UUID, db: AsyncSession) -> None:
+async def delete_user(id: UUID, db: AsyncSession, current_user: User | None = None) -> None:
     """Отключить пользователя без физического удаления."""
 
     user = await db.get(User, id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        
+    if current_user and not getattr(current_user, "is_superuser", False) and user.admin_id != current_user.id and user.id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
     user.is_active = False
     await db.commit()

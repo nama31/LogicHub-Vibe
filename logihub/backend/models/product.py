@@ -3,7 +3,7 @@
 import datetime as dt
 import uuid
 
-from sqlalchemy import DateTime, Integer, String, func
+from sqlalchemy import DateTime, Integer, String, func, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -16,6 +16,7 @@ class Product(Base):
     __tablename__ = "products"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    admin_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     title: Mapped[str] = mapped_column(String, nullable=False)
     purchase_price: Mapped[int] = mapped_column(Integer, nullable=False)  # tiyins
     selling_price: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")  # tiyins
