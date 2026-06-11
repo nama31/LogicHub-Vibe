@@ -37,6 +37,8 @@ async def get_user_by_phone(phone: str, db: AsyncSession) -> User | None:
     db_clean_phone = func.regexp_replace(User.phone, r'\D', '', 'g')
     result = await db.execute(
         select(User).where(
+            User.phone.is_not(None),
+            func.length(db_clean_phone) > 0,
             (db_clean_phone == clean_target) |
             (db_clean_phone.like(f"%{clean_target}")) |
             (literal(clean_target).like(func.concat('%', db_clean_phone)))

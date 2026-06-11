@@ -60,7 +60,7 @@ async def require_admin(current_user: User = Depends(get_current_user)) -> User:
     """Проверка прав админа."""
 
     if current_user.role != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
+        print(f"403 because role is {current_user.role} and type {type(current_user.role)}"); raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
 
     return current_user
 
@@ -84,7 +84,7 @@ async def require_admin_or_bot_secret(
 
     current_user = await _get_user_from_token(token.credentials, db)
     if current_user.role != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
+        print(f"403 because role is {current_user.role} and type {type(current_user.role)}"); raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
 
     return current_user
 

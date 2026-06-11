@@ -9,10 +9,10 @@ export function useRealTime() {
     if (!token) return;
 
     // In a real app, you would pass the token to authenticate the WS connection if needed
-    // The backend endpoint is ws://localhost:8000/ws/admin/realtime
+    // Use NEXT_PUBLIC_API_URL if available, otherwise construct from current hostname
     const wsUrl = process.env.NEXT_PUBLIC_API_URL 
       ? process.env.NEXT_PUBLIC_API_URL.replace("http", "ws") + "/ws/admin/realtime"
-      : "ws://localhost:8000/ws/admin/realtime";
+      : `ws://${window.location.hostname}:8000/ws/admin/realtime`;
 
     let ws: WebSocket | null = null;
     let reconnectTimeout: NodeJS.Timeout;

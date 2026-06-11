@@ -32,10 +32,11 @@ class RoleAuthMiddleware(BaseMiddleware):
 		user_db = await self._auth_service.get_user(int(tg_id))
 
 		if user_db is None or not user_db.get("is_active"):
-			# Разрешаем /start для всех (хендлер сам покажет сообщение об ошибке если нет пользователя)
-			if isinstance(event, Message) and event.text == "/start":
-				data["user_role"] = None
-				return await handler(event, data)
+			# Разрешаем /start и отправку контакта для всех (хендлер сам покажет сообщение об ошибке если нет пользователя)
+			if isinstance(event, Message):
+				if event.text == "/start" or getattr(event, "contact", None) is not None:
+					data["user_role"] = None
+					return await handler(event, data)
 				
 			await self._deny(event)
 			return None

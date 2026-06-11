@@ -61,6 +61,13 @@ async def contact_handler(
 					"Пользователь не найден",
 				)
 			)
+		elif e.status_code == 400:
+			await message.answer(
+				format_warning_message(
+					"Номер телефона имеет неверный формат. Пожалуйста, поделитесь корректным номером.",
+					"Неверный номер",
+				)
+			)
 		else:
 			await message.answer(format_error_message(f"Произошла ошибка при регистрации: {e.detail}"))
 	except Exception as e:

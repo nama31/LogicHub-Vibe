@@ -80,8 +80,15 @@ async def register_bot_user(
     """Регистрация пользователя (курьера или клиента) по номеру телефона."""
 
     from services.user_service import get_user_by_phone
+    import re
     
-    user = await get_user_by_phone(payload.phone, db)
+    # Нормализация телефона: удаляем всё кроме цифр и добавляем +
+    clean_phone = re.sub(r'\D', '', payload.phone)
+    if len(clean_phone) < 10:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Phone number must contain at least 10 digits")
+    normalized_phone = f"+{clean_phone}"
+    
+    user = await get_user_by_phone(normalized_phone, db)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User with this phone not found")
     
