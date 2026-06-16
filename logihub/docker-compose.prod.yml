@@ -47,6 +47,7 @@ services:
       retries: 5
 
   backend:
+    image: logihub_backend_prod
     build:
       context: ./backend
       dockerfile: Dockerfile.prod
@@ -67,6 +68,7 @@ services:
       - backend_media:/app/backend/media
 
   frontend:
+    image: logihub_frontend_prod
     build:
       context: ./frontend
       dockerfile: Dockerfile.prod
@@ -80,6 +82,7 @@ services:
       - backend
 
   bot:
+    image: logihub_bot_prod
     build:
       context: ./bot
       dockerfile: Dockerfile.prod
