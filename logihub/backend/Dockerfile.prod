@@ -15,6 +15,17 @@ COPY . /app/backend
 
 RUN chmod +x start.sh
 
+# Create non-root user and change ownership
+RUN groupadd -r logihub && useradd -r -g logihub logihub && \
+    chown -R logihub:logihub /app/backend
+
+# Switch to non-root user
+USER logihub
+
+# Healthcheck to ensure API is responsive
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+
 EXPOSE 8000
 
 CMD ["./start.sh"]

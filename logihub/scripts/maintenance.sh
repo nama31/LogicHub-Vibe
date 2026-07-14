@@ -25,7 +25,9 @@ echo "Creating pg_dump..."
 if docker exec logihub_db pg_dump -U logihub -Fc logihub > "$BACKUP_FILE"; then
     echo "Backup successful: $BACKUP_FILE"
 else
-    echo "ERROR: Backup failed!"
+    echo "ERROR: Backup failed! Halting maintenance script to prevent purging old backups."
+    rm -f "$BACKUP_FILE"
+    exit 1
 fi
 
 echo "Cleaning up backups older than 7 days..."
