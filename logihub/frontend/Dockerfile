@@ -17,7 +17,7 @@ RUN pnpm install
 COPY --chown=node:node . .
 
 # Make sure all installed modules and generated files belong to node user
-RUN chown -R node:node /app/frontend
+RUN mkdir -p /app/frontend/.next && chown -R node:node /app/frontend
 
 # Switch to the non-root node user (UID 1000)
 USER node
