@@ -16,3 +16,9 @@ __pycache__/
 .venv/
 env/
 venv/
+
+# ── Docker & Infrastructure ─────────────────────────────────────
+certbot/conf/
+certbot/www/
+backups/
+postgres_data/

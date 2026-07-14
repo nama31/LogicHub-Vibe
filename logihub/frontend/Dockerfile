@@ -1,24 +1,32 @@
 FROM node:20-alpine
 
-# Устанавливаем pnpm глобально
 RUN npm install -g pnpm
 
 WORKDIR /app/frontend
 
-# Обязательно копируем файлы манифестов ДО установки зависимостей
+# Ensure the node user (UID 1000) owns the working directory
+RUN chown node:node /app/frontend
+
+# Copy manifests first for dependency caching
 COPY package.json pnpm-lock.yaml* ./
 
-# Запускаем установку
+# Install dependencies
 RUN pnpm install
 
-# Копируем остальной код
-COPY . .
+# Copy source and change ownership
+COPY --chown=node:node . .
 
-# Открываем порт (для Next.js по умолчанию 3000)
+# Make sure all installed modules and generated files belong to node user
+RUN chown -R node:node /app/frontend
+
+# Switch to the non-root node user (UID 1000)
+USER node
+
 EXPOSE 3000
 
-# for local development
-CMD ["npm", "run", "dev", "--", "--hostname", "0.0.0.0", "--port", "3000"]
+# Healthcheck to verify the dev server is running
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
-# #for deployment 
-# CMD ["sh", "-c", "npm run start -- -p $PORT"]
+# for local development
+CMD ["pnpm", "run", "dev"]
